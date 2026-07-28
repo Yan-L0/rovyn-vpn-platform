@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from vpn_platform.db.models import User, WebSession
@@ -39,3 +39,15 @@ async def get_current_user(
     session, user = authenticated
     await db.commit()
     return AuthenticatedUser(session=session, user=user)
+
+
+async def require_csrf(
+    auth: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    csrf_token: Annotated[str, Header(alias="X-CSRF-Token")] = "",
+) -> AuthenticatedUser:
+    if not csrf_token or not IdentityService.verify_csrf(auth.session, csrf_token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="invalid CSRF token",
+        )
+    return auth

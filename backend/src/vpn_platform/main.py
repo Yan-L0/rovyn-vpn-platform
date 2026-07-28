@@ -8,10 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from redis.asyncio import Redis
 from sqlalchemy import text
 
+from vpn_platform.api.account_v2 import router as account_v2_router
+from vpn_platform.api.orders import router as orders_router
 from vpn_platform.api.routes import router
 from vpn_platform.core.config import get_settings
 from vpn_platform.db.session import create_engine, create_session_factory
 from vpn_platform.providers.remnawave import RemnawaveProvider
+from vpn_platform.providers.yookassa import YooKassaProvider
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +25,17 @@ async def lifespan(app: FastAPI):
     engine = create_engine(settings.DATABASE_URL)
     redis = Redis.from_url(settings.REDIS_URL, decode_responses=False)
     provider = None
+    payment_provider = None
     if settings.REMNAWAVE_BASE_URL and settings.REMNAWAVE_API_TOKEN.get_secret_value():
         provider = RemnawaveProvider(
             settings.REMNAWAVE_BASE_URL,
             settings.REMNAWAVE_API_TOKEN.get_secret_value(),
+            settings.HTTP_TIMEOUT_SECONDS,
+        )
+    if settings.YOOKASSA_ENABLED:
+        payment_provider = YooKassaProvider(
+            settings.YOOKASSA_SHOP_ID,
+            settings.YOOKASSA_SECRET_KEY.get_secret_value(),
             settings.HTTP_TIMEOUT_SECONDS,
         )
 
@@ -34,7 +44,10 @@ async def lifespan(app: FastAPI):
     app.state.session_factory = create_session_factory(engine)
     app.state.redis = redis
     app.state.vpn_provider = provider
+    app.state.payment_provider = payment_provider
     yield
+    if payment_provider is not None:
+        await payment_provider.close()
     if provider is not None:
         await provider.close()
     await redis.aclose()
@@ -57,6 +70,8 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-CSRF-Token", "X-Request-ID", "Idempotency-Key"],
 )
 app.include_router(router)
+app.include_router(orders_router)
+app.include_router(account_v2_router)
 
 
 @app.get("/health/live", include_in_schema=False)

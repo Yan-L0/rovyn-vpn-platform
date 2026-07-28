@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     REMNAWAVE_BASE_URL: str = ""
     REMNAWAVE_API_TOKEN: SecretStr = SecretStr("")
     REMNAWAVE_DEFAULT_SQUAD_UUIDS: str = ""
+
+    # V2 intentionally supports one payment rail only. YooKassa is configured
+    # server-side and every checkout explicitly requests payment_method_data=sbp.
+    YOOKASSA_ENABLED: bool = False
+    YOOKASSA_SHOP_ID: str = ""
+    YOOKASSA_SECRET_KEY: SecretStr = SecretStr("")
+    YOOKASSA_RETURN_URL: AnyHttpUrl | None = None
+    YOOKASSA_WEBHOOK_PATH: str = "/api/v1/payments/yookassa/webhook"
+    YOOKASSA_DESCRIPTION_PREFIX: str = "VPN Platform"
+
     HTTP_TIMEOUT_SECONDS: Annotated[float, Field(gt=0, le=60)] = 10
     LOG_LEVEL: str = "INFO"
 
@@ -75,6 +85,13 @@ class Settings(BaseSettings):
                     raise ValueError("REMNAWAVE_BASE_URL must use HTTPS")
                 if not self.REMNAWAVE_API_TOKEN.get_secret_value():
                     raise ValueError("REMNAWAVE_API_TOKEN is required")
+            if self.YOOKASSA_ENABLED:
+                if not self.YOOKASSA_SHOP_ID:
+                    raise ValueError("YOOKASSA_SHOP_ID is required when YooKassa is enabled")
+                if not self.YOOKASSA_SECRET_KEY.get_secret_value():
+                    raise ValueError("YOOKASSA_SECRET_KEY is required when YooKassa is enabled")
+                if self.YOOKASSA_RETURN_URL is None:
+                    raise ValueError("YOOKASSA_RETURN_URL is required when YooKassa is enabled")
         return self
 
 

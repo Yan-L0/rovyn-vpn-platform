@@ -20,7 +20,6 @@ import {
   LogOut,
   Mail,
   Menu,
-  Minus,
   MonitorSmartphone,
   Paperclip,
   Plus,
@@ -38,7 +37,16 @@ import {
   X,
   Zap,
 } from 'lucide-react'
-import { authenticate, loadMe, loadPlans, type Me, type Plan } from './api'
+import {
+  authenticate,
+  createSbpOrder,
+  loadMe,
+  loadOrder,
+  loadPlans,
+  type CheckoutOrder,
+  type Me,
+  type Plan,
+} from './api'
 
 type View = 'dashboard' | 'plans' | 'connect' | 'devices' | 'referral' | 'analytics' | 'wallet' | 'support' | 'chat' | 'legal'
 
@@ -344,7 +352,7 @@ function MiniApp() {
         <header className="reference-mobile-header"><Brand /><button type="button" onClick={() => navigate('wallet')} aria-label="Настройки"><Settings /></button></header>
         <main className="reference-content">
           {view === 'dashboard' && <Dashboard me={me} onNavigate={navigate} />}
-          {view === 'plans' && <Plans plans={plans} onBack={() => navigate('dashboard')} />}
+          {view === 'plans' && <Plans plans={plans} browserCheckout={!embedded && !browserBypass} onBack={() => navigate('dashboard')} />}
           {view === 'connect' && <Connect hasSubscription={Boolean(me.subscription)} onNavigate={navigate} />}
           {view === 'devices' && <Devices onNavigate={navigate} />}
           {view === 'referral' && <Referral me={me} onNavigate={navigate} />}
@@ -465,7 +473,7 @@ function planPeriod(days: number): { count: string; label: string } {
   return { count: String(days), label: 'дней' }
 }
 
-function Plans({ plans, onBack }: { plans: Plan[]; onBack: () => void }) {
+function Plans({ plans, browserCheckout, onBack }: { plans: Plan[]; browserCheckout: boolean; onBack: () => void }) {
   const fallbackPlans: Plan[] = [
     { id: 'year', code: 'year', name: '12 месяцев', description: 'Максимальная выгода', duration_days: 365, traffic_limit_bytes: 0, device_limit: 10, price_minor: 179900, currency: 'RUB', server_groups: [] },
     { id: 'half-year', code: 'half-year', name: '6 месяцев', description: 'Выгодная подписка', duration_days: 180, traffic_limit_bytes: 0, device_limit: 10, price_minor: 99900, currency: 'RUB', server_groups: [] },
@@ -474,16 +482,72 @@ function Plans({ plans, onBack }: { plans: Plan[]; onBack: () => void }) {
   ]
   const catalog = (plans.length ? plans : fallbackPlans).slice().sort((a, b) => b.duration_days - a.duration_days)
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [deviceCount, setDeviceCount] = useState(3)
   const [carouselOffset, setCarouselOffset] = useState(0)
+  const [checkout, setCheckout] = useState<CheckoutOrder | null>(null)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const selected = catalog[Math.min(selectedIndex, catalog.length - 1)]
   const periodMonths = Math.max(1, Math.round(selected.duration_days / 30))
-  const extraDevices = Math.max(0, deviceCount - 3)
-  const extrasMinor = extraDevices * 5000 * periodMonths
-  const totalMinor = selected.price_minor + extrasMinor
-  const perMonthMinor = Math.round(totalMinor / periodMonths)
-  const perDayMinor = Math.round(totalMinor / Math.max(1, selected.duration_days))
+  const perMonthMinor = Math.round(selected.price_minor / periodMonths)
+  const perDayMinor = Math.round(selected.price_minor / Math.max(1, selected.duration_days))
   const discountFor = (days: number) => days >= 360 ? '-25%' : days >= 170 ? '-16%' : days >= 80 ? '-10%' : ''
+  const checkoutPaid = checkout?.status === 'paid' || checkout?.payment_status === 'succeeded'
+  const checkoutStopped = checkout?.status === 'cancelled'
+    || checkout?.status === 'expired'
+    || checkout?.status === 'failed'
+    || checkout?.payment_status === 'cancelled'
+    || checkout?.payment_status === 'failed'
+
+  useEffect(() => {
+    setCheckout(null)
+    setCheckoutError(null)
+  }, [selected.id])
+
+  useEffect(() => {
+    if (!checkout || checkoutPaid || checkoutStopped) return
+    const refresh = () => {
+      void loadOrder(checkout.order_id)
+        .then(setCheckout)
+        .catch(() => undefined)
+    }
+    const timer = window.setInterval(refresh, 5000)
+    window.addEventListener('focus', refresh)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [checkout, checkoutPaid, checkoutStopped])
+
+  async function startCheckout() {
+    setCheckoutLoading(true)
+    setCheckoutError(null)
+    try {
+      const idempotencyKey = window.crypto.randomUUID()
+      const order = await createSbpOrder(selected.id, idempotencyKey)
+      setCheckout(order)
+      if (order.confirmation_url) {
+        const paymentWindow = window.open(order.confirmation_url, '_blank', 'noopener,noreferrer')
+        if (!paymentWindow) window.location.assign(order.confirmation_url)
+      }
+    } catch (reason) {
+      setCheckoutError(reason instanceof Error ? reason.message : 'Не удалось создать платёж')
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
+
+  async function refreshCheckout() {
+    if (!checkout) return
+    setCheckoutLoading(true)
+    setCheckoutError(null)
+    try {
+      setCheckout(await loadOrder(checkout.order_id))
+    } catch (reason) {
+      setCheckoutError(reason instanceof Error ? reason.message : 'Не удалось проверить платёж')
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
 
   return (
     <section className="purchase-screen reference-plans">
@@ -513,22 +577,45 @@ function Plans({ plans, onBack }: { plans: Plan[]; onBack: () => void }) {
         <button className="carousel-arrow carousel-next" type="button" aria-label="Вперёд" disabled={catalog.length <= 2 || carouselOffset > 0} onClick={() => setCarouselOffset(Math.max(0, catalog.length - 2))}><ArrowRight /></button>
       </div>
 
-      <section className="device-count-card">
-        <h3>Выберите нужное количество устройств</h3>
-        <p>В тариф включены 3 устройства. Дополнительные устройства: +50 ₽ / месяц каждое</p>
-        <div className="device-stepper">
-          <button type="button" aria-label="Уменьшить количество" disabled={deviceCount === 3} onClick={() => setDeviceCount((value) => Math.max(3, value - 1))}><Minus /></button>
-          <strong>{deviceCount}</strong>
-          <button type="button" aria-label="Увеличить количество" disabled={deviceCount === 10} onClick={() => setDeviceCount((value) => Math.min(10, value + 1))}><Plus /></button>
+      <section className="device-count-card included-devices">
+        <div>
+          <h3>Устройства уже включены</h3>
+          <p>Тариф позволяет подключить до {selected.device_limit} устройств без доплаты</p>
         </div>
+        <strong>{selected.device_limit}</strong>
       </section>
 
       <section className="checkout-card">
         <div><span>Период</span><strong>{planPeriod(selected.duration_days).count} {planPeriod(selected.duration_days).label}</strong><small>{formatMoney(perDayMinor, selected.currency)} / день</small></div>
-        <div><span>Устройства</span><strong>{deviceCount}</strong><small>{extraDevices ? `+${formatMoney(extrasMinor, selected.currency)}` : 'включено'}</small></div>
+        <div><span>Устройства</span><strong>{selected.device_limit}</strong><small>включено</small></div>
       </section>
-      <button className="reference-primary checkout-button" type="button" disabled>Оплатить {formatMoney(totalMinor, selected.currency)}</button>
-      <p className="cabinet-caption">Платёжный провайдер ещё не подключён · {formatMoney(perMonthMinor, selected.currency)} в месяц</p>
+      {browserCheckout ? (
+        <>
+          {!checkoutPaid && !checkoutStopped && (
+            <button className="reference-primary checkout-button" type="button" disabled={checkoutLoading} onClick={() => void (checkout?.confirmation_url ? window.open(checkout.confirmation_url, '_blank', 'noopener,noreferrer') : startCheckout())}>
+              {checkoutLoading ? <LoaderCircle className="spinner" /> : <WalletCards />}
+              {checkout ? 'Перейти к оплате по СБП' : `Оплатить по СБП ${formatMoney(selected.price_minor, selected.currency)}`}
+            </button>
+          )}
+          {checkout && (
+            <div className={`checkout-status ${checkoutPaid ? 'success' : checkoutStopped ? 'failed' : 'pending'}`} role="status">
+              <span>{checkoutPaid ? <Check /> : checkoutStopped ? <X /> : <LoaderCircle className="spinner" />}</span>
+              <div>
+                <strong>{checkoutPaid ? 'Подписка оплачена' : checkoutStopped ? 'Платёж не завершён' : 'Ожидаем оплату'}</strong>
+                <small>{checkoutPaid ? 'Статус подписки обновится автоматически.' : checkoutStopped ? 'Создайте новый платёж, когда будете готовы.' : 'После оплаты вернитесь на эту страницу.'}</small>
+              </div>
+              {!checkoutPaid && <button type="button" disabled={checkoutLoading} onClick={() => void (checkoutStopped ? startCheckout() : refreshCheckout())}>{checkoutStopped ? 'Повторить' : 'Проверить'}</button>}
+            </div>
+          )}
+          {checkoutError && <p className="checkout-error" role="alert">{checkoutError}</p>}
+          <p className="cabinet-caption">Безопасная оплата через YooKassa · СБП · {formatMoney(perMonthMinor, selected.currency)} в месяц</p>
+        </>
+      ) : (
+        <div className="miniapp-checkout-note">
+          <ShieldCheck />
+          <div><strong>Управление подпиской в Mini App</strong><p>Здесь можно выбрать тариф и контролировать подписку. Оплата по СБП доступна в защищённой браузерной версии кабинета.</p></div>
+        </div>
+      )}
     </section>
   )
 }

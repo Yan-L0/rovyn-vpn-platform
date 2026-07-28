@@ -1470,6 +1470,24 @@ body.cabinet-body { background: #000; }
 .checkout-card strong { justify-self: end; font-size: 13px; }
 .checkout-card small { grid-column: 1 / -1; text-align: right; }
 .checkout-button { width: 100%; margin-top: 14px; min-height: 52px; }
+.checkout-button svg { width: 18px; height: 18px; }
+.included-devices { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.included-devices > div { min-width: 0; }
+.included-devices > strong { min-width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center; color: #061816; background: #13cabe; font-size: 22px; }
+.checkout-status { margin-top: 12px; padding: 13px 14px; display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,.09); border-radius: 18px; background: rgba(17,22,21,.82); }
+.checkout-status > span { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #13cabe; background: rgba(19,202,190,.13); }
+.checkout-status > span svg { width: 15px; height: 15px; }
+.checkout-status > div { min-width: 0; display: grid; gap: 3px; }
+.checkout-status strong { font-size: 12px; }
+.checkout-status small { color: #849691; font-size: 9px; line-height: 1.35; }
+.checkout-status > button { padding: 7px 10px; border: 1px solid rgba(19,202,190,.28); border-radius: 10px; color: #25d2c6; background: rgba(19,202,190,.08); font-size: 9px; font-weight: 700; }
+.checkout-status.success > span { color: #071713; background: #36d59c; }
+.checkout-status.failed > span { color: #ff8f89; background: rgba(255,99,91,.12); }
+.checkout-error { margin: 10px 0 0; color: #ffaaa5; font-size: 10px; text-align: center; }
+.miniapp-checkout-note { margin-top: 14px; padding: 15px; display: grid; grid-template-columns: 32px 1fr; gap: 11px; border: 1px solid rgba(19,202,190,.18); border-radius: 19px; background: linear-gradient(135deg, rgba(13,73,67,.38), rgba(17,22,21,.76)); }
+.miniapp-checkout-note > svg { width: 25px; color: #20d2c5; }
+.miniapp-checkout-note strong { font-size: 11px; }
+.miniapp-checkout-note p { margin: 5px 0 0; color: #8ea09c; font-size: 9px; line-height: 1.45; }
 
 .setup-lead { max-width: 390px; margin: 22px auto; color: #8a9b97; font-size: 13px; line-height: 1.45; text-align: center; }
 .setup-choice-list { display: grid; gap: 10px; }

@@ -50,3 +50,23 @@ class MeResponse(BaseModel):
     wallet_currency: str
     referral_code: str
     subscription: SubscriptionResponse | None
+
+
+class CreateOrderRequest(BaseModel):
+    plan_id: uuid.UUID
+
+
+class OrderPaymentResponse(BaseModel):
+    order_id: uuid.UUID
+    status: str
+    amount_minor: int
+    currency: str
+    payment_id: uuid.UUID
+    payment_status: str
+    confirmation_url: str | None
+
+
+class YooKassaWebhookEnvelope(BaseModel):
+    type: str
+    event: str
+    object: dict[str, object]

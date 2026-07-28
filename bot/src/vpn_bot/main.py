@@ -5,8 +5,8 @@ import logging
 import re
 
 from aiogram import Bot, Dispatcher, Router
-from aiogram.filters import CommandStart
-from aiogram.types import MenuButtonWebApp, Message, WebAppInfo
+from aiogram.filters import Command, CommandStart
+from aiogram.types import BotCommand, MenuButtonWebApp, Message, WebAppInfo
 
 from vpn_bot.config import Settings
 from vpn_bot.keyboards import main_menu
@@ -35,6 +35,31 @@ async def start(message: Message, settings: Settings) -> None:
     )
 
 
+@router.message(Command("cabinet"))
+async def cabinet(message: Message, settings: Settings) -> None:
+    await message.answer(
+        "Откройте личный кабинет, чтобы управлять подпиской и устройствами.",
+        reply_markup=main_menu(str(settings.MINIAPP_PUBLIC_URL)),
+    )
+
+
+@router.message(Command("help"))
+async def help_command(message: Message, settings: Settings) -> None:
+    await message.answer(
+        "Настройка VPN, тарифы, устройства и поддержка находятся в личном кабинете.",
+        reply_markup=main_menu(str(settings.MINIAPP_PUBLIC_URL)),
+    )
+
+
+@router.message(Command("paysupport"))
+async def payment_support(message: Message, settings: Settings) -> None:
+    await message.answer(
+        "По вопросам оплаты откройте раздел «Поддержка» в личном кабинете. "
+        "Укажите дату, сумму и идентификатор платежа.",
+        reply_markup=main_menu(str(settings.MINIAPP_PUBLIC_URL)),
+    )
+
+
 async def run() -> None:
     settings = Settings()
     logging.basicConfig(level=logging.INFO)
@@ -43,6 +68,13 @@ async def run() -> None:
     dispatcher["settings"] = settings
     dispatcher.include_router(router)
     try:
+        await bot.set_my_commands(
+            [
+                BotCommand(command="cabinet", description="Открыть личный кабинет"),
+                BotCommand(command="help", description="Помощь"),
+                BotCommand(command="paysupport", description="Поддержка по оплате"),
+            ]
+        )
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
                 text="Открыть VPN",

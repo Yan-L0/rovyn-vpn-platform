@@ -15,6 +15,8 @@ implemented components; it is not yet a production-readiness claim.
 - Unified React/TypeScript frontend: an original public landing page in a normal
   browser and a Telegram Mini App cabinet from the same build.
 - `VPNProvider` boundary and a real Remnawave HTTP adapter.
+- YooKassa checkout restricted server-side to one-stage SBP payments.
+- Idempotent order, verified webhook and Remnawave provisioning workflow.
 - PostgreSQL/Redis local stack and fail-closed production configuration.
 - Architecture, threat model, research and license baseline.
 
@@ -42,6 +44,10 @@ monitoring/    Observability configuration (later phase)
 
 The development bypass is rejected when `APP_ENV` is not `development` or
 `test`. Payments and VPN provisioning do not have mock production fallbacks.
+To test YooKassa, set the `YOOKASSA_*` variables from `.env.example` to a
+YooKassa test shop. The checkout is available in the standalone browser
+cabinet. It is intentionally not offered inside the Telegram Mini App because
+Telegram requires Stars for digital services sold inside Telegram clients.
 
 ## Verification
 
@@ -60,6 +66,9 @@ baseline is Python 3.12 and Node.js 22.
 
 - No VPNUS name, logo, text or proprietary assets are included.
 - Payment entitlement is created only after a verified server callback.
+- YooKassa webhook payloads are never trusted directly: the API re-fetches the
+  payment over the authenticated YooKassa API and verifies order, amount and
+  currency before provisioning.
 - Money is recorded through an append-only ledger, not mutable balance updates.
 - Telegram `initData` is validated by the backend; `initDataUnsafe` is never an
   authority.
