@@ -1,0 +1,50 @@
+name: vpn-platform-node
+
+services:
+  reality-fallback:
+    image: nginx:1.28.3-alpine
+    container_name: rovyn-reality-fallback
+    hostname: rovyn-reality-fallback
+    network_mode: host
+    volumes:
+      - ./nginx-reality-fallback.conf:/etc/nginx/nginx.conf:ro
+      - ./reality-fallback.html:/usr/share/nginx/html/index.html:ro
+      - /opt/remnanode/ssl:/etc/nginx/ssl:ro
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider --quiet --no-check-certificate https://127.0.0.1:9443/health",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+
+  remnanode:
+    image: remnawave/node:2.7.0
+    container_name: remnanode
+    hostname: remnanode
+    network_mode: host
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      NODE_PORT: "2222"
+    depends_on:
+      reality-fallback:
+        condition: service_healthy
+    volumes:
+      - /var/log/remnanode:/var/log/remnanode
+      - /opt/remnanode/ssl:/var/lib/remnawave/configs/xray/ssl:ro
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

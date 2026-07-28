@@ -1,0 +1,129 @@
+name: vpn-platform
+
+x-app-environment: &app-environment
+  APP_ENV: production
+  APP_NAME: VPN Platform
+  API_PUBLIC_URL: https://bot.vpn.example
+  MINIAPP_PUBLIC_URL: https://bot.vpn.example
+  DATABASE_URL: postgresql+asyncpg://vpn:${POSTGRES_PASSWORD}@postgres:5432/vpn
+  REDIS_URL: redis://redis:6379/0
+  TELEGRAM_AUTH_DEV_BYPASS: "false"
+  VPN_PROVIDER: remnawave
+  REMNAWAVE_BASE_URL: https://panel.vpn.example
+
+x-app-service: &app-service
+  env_file:
+    - path: ../.env.production
+      required: true
+  environment: *app-environment
+  restart: unless-stopped
+  networks:
+    - private
+
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: vpn
+      POSTGRES_USER: vpn
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vpn -d vpn"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - private
+
+  redis:
+    image: public.ecr.aws/docker/library/redis:8.0.2-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - private
+
+  migrate:
+    <<: *app-service
+    build:
+      context: ../backend
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *app-service
+    build:
+      context: ../backend
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  miniapp:
+    build:
+      context: ../miniapp
+      args:
+        VITE_API_URL: https://bot.vpn.example
+        VITE_TELEGRAM_BOT_URL: ${MINIAPP_TELEGRAM_URL:-/cabinet?app=1}
+    ports:
+      - "127.0.0.1:5173:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - private
+
+  bot:
+    profiles: ["telegram"]
+    env_file:
+      - path: ../.env.production
+        required: true
+    environment:
+      APP_ENV: production
+      MINIAPP_PUBLIC_URL: https://bot.vpn.example
+    build:
+      context: ../bot
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - private
+
+networks:
+  private:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: vpn-platform-postgres
+  redis_data:
+    name: vpn-platform-redis

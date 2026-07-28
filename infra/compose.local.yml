@@ -1,0 +1,100 @@
+name: vpn-platform-local
+
+services:
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: vpn
+      POSTGRES_USER: vpn
+      POSTGRES_PASSWORD: vpn
+      POSTGRES_INITDB_ARGS: --data-checksums
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vpn -d vpn"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: public.ecr.aws/docker/library/redis:8.0.2-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build:
+      context: ../backend
+    env_file:
+      - path: ../.env
+        required: false
+    environment: &application_environment
+      APP_ENV: development
+      DATABASE_URL: postgresql+asyncpg://vpn:vpn@postgres:5432/vpn
+      REDIS_URL: redis://redis:6379/0
+      MINIAPP_PUBLIC_URL: http://localhost:5173
+      TELEGRAM_AUTH_DEV_BYPASS: ${TELEGRAM_AUTH_DEV_BYPASS:-true}
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ../backend
+    env_file:
+      - path: ../.env
+        required: false
+    environment: *application_environment
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/live')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  miniapp:
+    build:
+      context: ../miniapp
+      args:
+        VITE_API_URL: http://localhost:8080
+        VITE_TELEGRAM_BOT_URL: ${MINIAPP_TELEGRAM_URL:-/cabinet?app=1}
+    ports:
+      - "127.0.0.1:5173:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  bot:
+    profiles: ["telegram"]
+    build:
+      context: ../bot
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      APP_ENV: development
+      MINIAPP_PUBLIC_URL: http://localhost:5173
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

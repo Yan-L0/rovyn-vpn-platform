@@ -1,0 +1,60 @@
+{
+	admin off
+	log {
+		output stdout
+		format json
+	}
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+}
+
+panel.vpn.example {
+	import security_headers
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+}
+
+subscription.vpn.example {
+	import security_headers
+	encode zstd gzip
+
+	@subscription_root path /
+	handle @subscription_root {
+		redir https://bot.vpn.example/ 302
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3010 {
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Port 443
+		}
+	}
+}
+
+bot.vpn.example {
+	import security_headers
+	encode zstd gzip
+
+	@sensitive path /.env* /.git/* /.ssh/* /.svn/* /.npmrc /server.key /secrets.json /dump.sql /backup.sql /database.sql /database_backup.sql /backup.zip /backup.tar.gz /docker-compose.yml /wp-config.php /phpinfo.php /actuator/*
+	handle @sensitive {
+		respond 404
+	}
+
+	@backend path /api/* /health/*
+	handle @backend {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:5173
+	}
+}

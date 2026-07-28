@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r backend/requirements-dev.lock
+      - run: pip install --no-deps -e backend
+      - run: ruff check backend/src backend/tests
+      - run: mypy backend/src
+      - run: pytest backend/tests --cov=vpn_platform --cov-report=term-missing
+
+  miniapp:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: miniapp/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: miniapp
+      - run: pnpm build
+        working-directory: miniapp

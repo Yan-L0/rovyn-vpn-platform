@@ -1,0 +1,25 @@
+name: vpn-platform-subscription
+
+services:
+  subscription:
+    image: remnawave/subscription-page:7.2.0
+    container_name: remnawave-subscription-page
+    hostname: remnawave-subscription-page
+    env_file:
+      - path: .env
+        required: true
+    ports:
+      - "127.0.0.1:3010:3010"
+    networks:
+      - remnawave-network
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  remnawave-network:
+    name: remnawave-network
+    external: true

@@ -1,0 +1,12 @@
+[Unit]
+Description=Rovyn VPN network queue tuning
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/tc qdisc replace dev ens3 root fq
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
