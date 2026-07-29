@@ -19,9 +19,28 @@
 }
 
 * { box-sizing: border-box; }
-html, body { min-height: 100%; margin: 0; background: #020606; }
+html, body { min-height: 100%; margin: 0; background: #0b302d; }
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(116, 222, 209, .6) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  min-height: 52px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(139,230,220,.8), rgba(42,141,133,.72))
+    padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(180deg, rgba(180,247,239,.94), rgba(55,170,160,.86))
+    padding-box;
+}
+*::-webkit-scrollbar-corner { background: transparent; }
 body {
-  padding: 18px;
   color: var(--white);
   font-family: Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -34,19 +53,19 @@ svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width:
 .shell {
   position: relative;
   isolation: isolate;
-  min-height: calc(100svh - 36px);
-  max-width: 1600px;
-  margin: auto;
-  padding: 0 42px 140px;
+  min-height: 100svh;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 clamp(18px, 3.3vw, 56px) 140px;
   overflow: hidden;
-  border: 1px solid rgba(158, 244, 232, .2);
-  border-radius: 54px;
+  border: 0;
+  border-radius: 0;
   background:
     linear-gradient(135deg, rgba(48, 210, 196, .88), rgba(16, 75, 70, .86) 31%, rgba(10, 47, 44, .9) 66%, rgba(42, 221, 205, .9)),
     #123f3b;
   box-shadow:
-    inset 0 0 110px rgba(157, 255, 244, .24),
-    0 36px 120px rgba(0, 0, 0, .6);
+    inset 0 0 110px rgba(157, 255, 244, .24);
 }
 .shell::before,
 .shell::after {
@@ -367,8 +386,7 @@ svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width:
 }
 
 @media (max-width: 640px) {
-  body { padding: 0; }
-  .shell { width:100%; min-height:100svh; padding:0 13px 112px; border:0; border-radius:0; }
+  .shell { width:100%; min-height:100svh; padding:0 13px 112px; }
   .chrome { height:76px; padding:0 5px; }
   .brand span { display:none; }
   .section-label { font-size:9px; }
