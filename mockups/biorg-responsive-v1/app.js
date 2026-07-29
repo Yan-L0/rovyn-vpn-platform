@@ -11,11 +11,3 @@ navigation.forEach((button) => button.addEventListener("click", () => openView(b
 document.querySelectorAll("[data-open]").forEach((button) => {
   button.addEventListener("click", () => openView(button.dataset.open));
 });
-
-const power = document.querySelector(".power-control");
-power?.addEventListener("click", () => {
-  const connected = power.classList.toggle("is-on");
-  power.setAttribute("aria-label", connected ? "Отключить VPN" : "Подключить VPN");
-  document.querySelector(".hero-status strong").textContent = connected ? "VPN подключён" : "VPN отключён";
-  document.querySelector(".status-dot").style.background = connected ? "var(--moss)" : "#ad705e";
-});
