@@ -1,33 +1,21 @@
-const navButtons = [...document.querySelectorAll("[data-view]")];
+const navigation = [...document.querySelectorAll("[data-view]")];
 const screens = [...document.querySelectorAll("[data-screen]")];
 
-function openView(viewName) {
-  screens.forEach((screen) => {
-    screen.classList.toggle("is-visible", screen.dataset.screen === viewName);
-  });
-
-  navButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.view === viewName);
-  });
-
-  document.querySelector(`[data-screen="${viewName}"]`)?.scrollTo({ top: 0, behavior: "instant" });
+function openView(name) {
+  screens.forEach((screen) => screen.classList.toggle("is-visible", screen.dataset.screen === name));
+  navigation.forEach((button) => button.classList.toggle("is-active", button.dataset.view === name));
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-navButtons.forEach((button) => {
-  button.addEventListener("click", () => openView(button.dataset.view));
+navigation.forEach((button) => button.addEventListener("click", () => openView(button.dataset.view)));
+document.querySelectorAll("[data-open]").forEach((button) => {
+  button.addEventListener("click", () => openView(button.dataset.open));
 });
 
-document.querySelector(".device-shortcut")?.addEventListener("click", () => openView("devices"));
-document.querySelector(".round-arrow")?.addEventListener("click", () => openView("plans"));
-
-const powerButton = document.querySelector(".power-control");
-powerButton?.addEventListener("click", () => {
-  const enabled = powerButton.classList.toggle("is-on");
-  powerButton.setAttribute("aria-label", enabled ? "Отключить VPN" : "Подключить VPN");
-  document.querySelector(".connection-copy h1").innerHTML = enabled
-    ? "Ваш интернет<br />защищён"
-    : "VPN временно<br />отключён";
-  document.querySelector(".connection-copy p").textContent = enabled
-    ? "Амстердам · 24 мс"
-    : "Нажмите, чтобы подключиться";
+const power = document.querySelector(".power-control");
+power?.addEventListener("click", () => {
+  const connected = power.classList.toggle("is-on");
+  power.setAttribute("aria-label", connected ? "Отключить VPN" : "Подключить VPN");
+  document.querySelector(".hero-status strong").textContent = connected ? "VPN подключён" : "VPN отключён";
+  document.querySelector(".status-dot").style.background = connected ? "var(--moss)" : "#ad705e";
 });
