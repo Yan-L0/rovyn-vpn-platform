@@ -32,54 +32,55 @@
       </header>
 
       <section class="screen is-visible" data-screen="home">
-        <div class="home-grid">
-          <article class="hero-card">
-            <div class="hero-copy">
-              <p class="kicker">NOVA Unlimited</p>
-              <h1>Интернет без<br />лишних границ.</h1>
+        <div class="home-dashboard">
+          <header class="home-heading">
+            <div>
+              <p class="kicker">Личный кабинет</p>
+              <h1>Добрый день, Ян</h1>
             </div>
-            <div class="landscape">
-              <img src="./assets/network-terrain.png" alt="" />
-              <div class="landscape-wash"></div>
-              <div class="location">
-                <small>В подписке</small>
-                <strong>Все локации</strong>
-                <span>Безлимитный трафик · 5 устройств</span>
+            <p>Здесь собраны подписка, устройства и основные возможности NOVA.</p>
+          </header>
+
+          <article class="subscription-hero">
+            <img class="subscription-terrain" src="./assets/network-terrain.png" alt="" />
+            <div class="subscription-copy">
+              <p class="kicker">Текущий тариф</p>
+              <h2>NOVA<br />Unlimited</h2>
+              <p>Все локации, безлимитный трафик и пять устройств.</p>
+              <div class="subscription-actions">
+                <button data-open="plans">Продлить подписку <svg><use href="#i-arrow"/></svg></button>
+                <button class="quiet-action" data-open="devices">Устройства</button>
               </div>
             </div>
-            <div class="price-orbit" aria-label="Стоимость от 124 рублей в месяц">
-              <small>от</small>
-              <strong>124 ₽</strong>
-              <span>в месяц</span>
+            <div class="membership-visual" aria-label="26 дней подписки осталось">
+              <div class="membership-rings"><i></i><i></i><i></i></div>
+              <strong>26</strong>
+              <span>дней осталось</span>
             </div>
-            <div class="hero-offer">
-              <div><small>Подписка для всех платформ</small><strong>Один тариф. Все возможности.</strong></div>
-              <button data-open="plans">Выбрать тариф <svg><use href="#i-arrow"/></svg></button>
+            <div class="subscription-meta">
+              <div><small>Активна до</small><strong>24 августа</strong></div>
+              <div><small>Стоимость</small><strong>124 ₽ / месяц</strong></div>
             </div>
           </article>
 
-          <aside class="home-aside">
-            <article class="plan-summary">
-              <div class="orbital">
-                <i></i><i></i><i></i>
-                <strong>26</strong><small>дней</small>
-              </div>
-              <div>
-                <p class="kicker">Подписка</p>
-                <h2>Активна<br />до 24 августа</h2>
-              </div>
-              <button class="text-action" data-open="plans">Продлить <svg><use href="#i-arrow"/></svg></button>
+          <div class="overview-row">
+            <article class="overview-card">
+              <small>Баланс</small>
+              <strong>0 ₽</strong>
+              <span>Автоплатёж выключен</span>
             </article>
-            <article class="metric-card">
-              <div><small>Трафик в тарифе</small><strong>∞ <em>безлимит</em></strong></div>
-              <div class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <article class="overview-card accent-card">
+              <small>Трафик</small>
+              <strong>∞</strong>
+              <span>Без ограничений</span>
             </article>
-            <button class="device-line" data-open="devices">
-              <span class="mini-icon"><svg><use href="#i-devices"/></svg></span>
-              <span><small>Ваши устройства</small><strong>2 подключено</strong></span>
-              <svg><use href="#i-arrow"/></svg>
+            <button class="overview-card device-overview" data-open="devices">
+              <span class="overview-icon"><svg><use href="#i-devices"/></svg></span>
+              <small>Устройства</small>
+              <strong>2 из 5</strong>
+              <svg class="overview-arrow"><use href="#i-arrow"/></svg>
             </button>
-          </aside>
+          </div>
         </div>
       </section>
 
@@ -150,22 +151,44 @@
       </section>
 
       <section class="screen" data-screen="profile">
-        <header class="profile-title">
-          <div class="profile-orbit"><span>YL</span></div>
-          <div><p class="kicker">Профиль</p><h2>Ян</h2><small>ID 1641241934</small></div>
-        </header>
-        <div class="profile-grid">
-          <article class="account-card">
-            <p class="kicker">Способы входа</p>
-            <button><svg><use href="#i-mail"/></svg><span><small>Email</small><strong>yan@example.com</strong></span><b>✓</b></button>
-            <button><svg><use href="#i-telegram"/></svg><span><small>Telegram</small><strong>Подключён</strong></span><b>✓</b></button>
-          </article>
-          <article class="settings-card">
-            <p class="kicker">Настройки</p>
-            <button><span>Уведомления</span><svg><use href="#i-arrow"/></svg></button>
-            <button><span>Язык</span><small>Русский</small></button>
-            <button><span>Выйти</span><svg><use href="#i-arrow"/></svg></button>
-          </article>
+        <div class="profile-shell">
+          <header class="profile-identity">
+            <div class="identity-avatar"><span>YL</span><i></i></div>
+            <div class="identity-copy">
+              <p class="kicker">Профиль</p>
+              <h2>Ян</h2>
+              <small>ID 1641241934</small>
+            </div>
+            <span class="membership-chip"><i></i> Подписка активна</span>
+          </header>
+
+          <div class="profile-workspace">
+            <article class="identity-sheet">
+              <div class="sheet-heading">
+                <div><p class="kicker">Доступ к аккаунту</p><h3>Способы входа</h3></div>
+                <span>2 подключено</span>
+              </div>
+              <button class="auth-method">
+                <span class="auth-icon"><svg><use href="#i-mail"/></svg></span>
+                <span><small>Email</small><strong>yan@example.com</strong></span>
+                <b>✓</b>
+              </button>
+              <button class="auth-method">
+                <span class="auth-icon telegram"><svg><use href="#i-telegram"/></svg></span>
+                <span><small>Telegram</small><strong>Подключён</strong></span>
+                <b>✓</b>
+              </button>
+              <p class="sheet-note">Эти способы можно использовать для входа в браузере и Telegram Mini App.</p>
+            </article>
+
+            <aside class="profile-controls">
+              <p class="kicker">Настройки</p>
+              <button><span><svg><use href="#i-bell"/></svg>Уведомления</span><b>Включены</b></button>
+              <button><span>Язык</span><b>Русский</b></button>
+              <button><span>Поддержка</span><svg><use href="#i-arrow"/></svg></button>
+              <button class="logout-row"><span>Выйти из аккаунта</span><svg><use href="#i-arrow"/></svg></button>
+            </aside>
+          </div>
         </div>
       </section>
     </main>
