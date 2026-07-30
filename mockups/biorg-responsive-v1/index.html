@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#080908" />
     <title>NOVA — quiet VPN cabinet concept</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=4" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -33,46 +33,76 @@
 
       <section class="screen is-visible" data-screen="home">
         <div class="home-grid">
-          <article class="hero-card hero-product">
-            <img class="hero-product-image" src="./assets/network-terrain.png" alt="" />
-            <div class="hero-product-shade"></div>
+          <article class="hero-card hero-route">
+            <img class="hero-route-image" src="./assets/network-terrain.png" alt="" />
+            <div class="hero-route-shade"></div>
 
-            <div class="hero-product-copy">
-              <p class="kicker">NOVA Unlimited</p>
-              <h1>Один тариф.<br /><span>Все локации.</span></h1>
-              <p>Безлимитный трафик и доступ на пяти устройствах — без скрытых условий.</p>
+            <div class="hero-route-copy">
+              <p class="kicker">NOVA · единая подписка</p>
+              <h1>Ваш интернет.<br /><span>Ваш маршрут.</span></h1>
+              <p>Выбирайте локацию сами. Безлимитный доступ для пяти устройств уже включён.</p>
+            </div>
+
+            <div class="route-visual" aria-hidden="true">
+              <span class="route-origin">Вы</span>
+              <i></i>
+              <span class="route-point">NOVA</span>
+              <b>24 мс</b>
+            </div>
+
+            <div class="hero-control">
+              <div class="hero-control-price">
+                <small>Годовой доступ</small>
+                <strong>900 ₽</strong>
+                <span>75 ₽ в месяц</span>
+              </div>
+              <div class="hero-control-detail">
+                <small>В подписке</small>
+                <strong>Безлимит · 5 устройств</strong>
+              </div>
               <button data-open="plans">Выбрать тариф <svg><use href="#i-arrow"/></svg></button>
-            </div>
-
-            <div class="hero-price-card" aria-label="Годовая подписка 900 рублей">
-              <small>Лучший выбор</small>
-              <strong>900 ₽</strong>
-              <span>за год · 75 ₽ в месяц</span>
-              <i>−25%</i>
-            </div>
-
-            <div class="hero-benefits" aria-label="Преимущества подписки">
-              <div><small>Трафик</small><strong>Безлимитный</strong></div>
-              <div><small>Устройства</small><strong>До пяти</strong></div>
-              <div><small>Поддержка</small><strong>Каждый день</strong></div>
             </div>
           </article>
 
           <aside class="home-aside">
-            <article class="plan-summary">
-              <div class="orbital">
-                <i></i><i></i><i></i>
-                <strong>26</strong><small>дней</small>
-              </div>
-              <div>
+            <article class="subscription-panel">
+              <header>
                 <p class="kicker">Подписка</p>
-                <h2>Активна<br />до 24 августа</h2>
+                <span class="status-dot">Активна</span>
+              </header>
+              <div class="subscription-date">
+                <strong>26</strong>
+                <span>дней осталось</span>
+                <small>до 24 августа</small>
               </div>
-              <button class="text-action" data-open="plans">Продлить <svg><use href="#i-arrow"/></svg></button>
+              <div class="subscription-progress" aria-label="Период подписки использован на 14 процентов">
+                <i></i>
+                <span>29 июля</span>
+                <span>24 августа</span>
+              </div>
+              <div class="subscription-actions">
+                <small>Автопродление выключено</small>
+                <button class="text-action" data-open="plans">Продлить <svg><use href="#i-arrow"/></svg></button>
+              </div>
             </article>
-            <article class="metric-card">
-              <div><small>Трафик в тарифе</small><strong>∞ <em>безлимит</em></strong></div>
-              <div class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <article class="traffic-card">
+              <header>
+                <label for="traffic-month">Потраченный трафик</label>
+                <select id="traffic-month" aria-label="Выбрать месяц">
+                  <option value="july">Июль 2026</option>
+                  <option value="june">Июнь 2026</option>
+                  <option value="may">Май 2026</option>
+                  <option value="april">Апрель 2026</option>
+                </select>
+              </header>
+              <div class="traffic-value">
+                <strong id="traffic-value">18,7 ГБ</strong>
+                <small id="traffic-caption">за текущий месяц</small>
+              </div>
+              <div class="traffic-bars" id="traffic-bars" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i>
+                <i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
             </article>
             <button class="device-line" data-open="devices">
               <span class="mini-icon"><svg><use href="#i-devices"/></svg></span>
@@ -178,6 +208,6 @@
       <button class="nav-item" data-view="profile" data-tip="Профиль" aria-label="Профиль"><svg><use href="#i-profile"/></svg></button>
     </nav>
 
-    <script src="./app.js"></script>
+    <script src="./app.js?v=4"></script>
   </body>
 </html>
