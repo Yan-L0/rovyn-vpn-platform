@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#080908" />
     <title>NOVA — quiet VPN cabinet concept</title>
-    <link rel="stylesheet" href="./styles.css?v=4" />
+    <link rel="stylesheet" href="./styles.css?v=5" />
   </head>
   <body>
     <svg class="svg-sprite" aria-hidden="true">
@@ -87,21 +87,29 @@
             </article>
             <article class="traffic-card">
               <header>
-                <label for="traffic-month">Потраченный трафик</label>
-                <select id="traffic-month" aria-label="Выбрать месяц">
-                  <option value="july">Июль 2026</option>
-                  <option value="june">Июнь 2026</option>
-                  <option value="may">Май 2026</option>
-                  <option value="april">Апрель 2026</option>
-                </select>
+                <div>
+                  <p>Потраченный трафик</p>
+                  <small>обновлено сейчас</small>
+                </div>
+                <span id="traffic-year">2026 год</span>
               </header>
-              <div class="traffic-value">
+              <div class="traffic-value" aria-live="polite">
                 <strong id="traffic-value">18,7 ГБ</strong>
-                <small id="traffic-caption">за текущий месяц</small>
+                <small id="traffic-caption">за июль · текущий месяц</small>
               </div>
-              <div class="traffic-bars" id="traffic-bars" aria-hidden="true">
-                <i></i><i></i><i></i><i></i><i></i><i></i>
-                <i></i><i></i><i></i><i></i><i></i><i></i>
+              <div class="traffic-bars" id="traffic-bars" aria-label="Трафик по месяцам за 2026 год">
+                <button type="button" data-month="0" aria-label="Январь"><i></i><span>Я</span></button>
+                <button type="button" data-month="1" aria-label="Февраль"><i></i><span>Ф</span></button>
+                <button type="button" data-month="2" aria-label="Март"><i></i><span>М</span></button>
+                <button type="button" data-month="3" aria-label="Апрель"><i></i><span>А</span></button>
+                <button type="button" data-month="4" aria-label="Май"><i></i><span>М</span></button>
+                <button type="button" data-month="5" aria-label="Июнь"><i></i><span>И</span></button>
+                <button type="button" data-month="6" aria-label="Июль"><i></i><span>И</span></button>
+                <button type="button" data-month="7" aria-label="Август"><i></i><span>А</span></button>
+                <button type="button" data-month="8" aria-label="Сентябрь"><i></i><span>С</span></button>
+                <button type="button" data-month="9" aria-label="Октябрь"><i></i><span>О</span></button>
+                <button type="button" data-month="10" aria-label="Ноябрь"><i></i><span>Н</span></button>
+                <button type="button" data-month="11" aria-label="Декабрь"><i></i><span>Д</span></button>
               </div>
             </article>
             <button class="device-line" data-open="devices">
@@ -208,6 +216,6 @@
       <button class="nav-item" data-view="profile" data-tip="Профиль" aria-label="Профиль"><svg><use href="#i-profile"/></svg></button>
     </nav>
 
-    <script src="./app.js?v=4"></script>
+    <script src="./app.js?v=5"></script>
   </body>
 </html>

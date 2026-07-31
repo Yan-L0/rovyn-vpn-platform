@@ -12,44 +12,68 @@ document.querySelectorAll("[data-open]").forEach((button) => {
   button.addEventListener("click", () => openView(button.dataset.open));
 });
 
-const trafficHistory = {
-  july: {
-    value: "18,7 ГБ",
-    caption: "за текущий месяц",
-    bars: [24, 34, 28, 55, 42, 70, 48, 62, 78, 52, 67, 84],
-  },
-  june: {
-    value: "42,3 ГБ",
-    caption: "за июнь",
-    bars: [44, 58, 47, 76, 61, 88, 53, 82, 69, 92, 64, 74],
-  },
-  may: {
-    value: "35,9 ГБ",
-    caption: "за май",
-    bars: [37, 51, 68, 45, 80, 56, 71, 64, 86, 59, 73, 66],
-  },
-  april: {
-    value: "27,4 ГБ",
-    caption: "за апрель",
-    bars: [29, 43, 52, 38, 66, 48, 57, 74, 49, 63, 55, 69],
-  },
-};
+const trafficYear = [
+  { name: "январь", value: 21.4 },
+  { name: "февраль", value: 28.8 },
+  { name: "март", value: 25.1 },
+  { name: "апрель", value: 27.4 },
+  { name: "май", value: 35.9 },
+  { name: "июнь", value: 42.3 },
+  { name: "июль", value: 18.7 },
+  { name: "август", value: null },
+  { name: "сентябрь", value: null },
+  { name: "октябрь", value: null },
+  { name: "ноябрь", value: null },
+  { name: "декабрь", value: null },
+];
 
-const trafficMonth = document.querySelector("#traffic-month");
+const currentTrafficMonth = 6;
 const trafficValue = document.querySelector("#traffic-value");
 const trafficCaption = document.querySelector("#traffic-caption");
-const trafficBars = [...document.querySelectorAll("#traffic-bars i")];
+const trafficYearLabel = document.querySelector("#traffic-year");
+const trafficBars = [...document.querySelectorAll("#traffic-bars button")];
 
-function updateTraffic(month) {
-  const selected = trafficHistory[month];
-  if (!selected) return;
+function formatTraffic(value) {
+  return `${value.toFixed(1).replace(".", ",")} ГБ`;
+}
 
-  trafficValue.textContent = selected.value;
-  trafficCaption.textContent = selected.caption;
-  trafficBars.forEach((bar, index) => {
-    bar.style.setProperty("--bar-height", `${selected.bars[index]}%`);
+function selectTrafficMonth(index) {
+  const selected = trafficYear[index];
+  if (!selected || selected.value === null) return;
+
+  trafficValue.textContent = formatTraffic(selected.value);
+  trafficCaption.textContent = index === currentTrafficMonth
+    ? `за ${selected.name} · текущий месяц`
+    : `за ${selected.name} 2026`;
+  trafficBars.forEach((bar, barIndex) => {
+    bar.classList.toggle("is-selected", barIndex === index);
+    bar.setAttribute("aria-pressed", String(barIndex === index));
   });
 }
 
-trafficMonth?.addEventListener("change", (event) => updateTraffic(event.target.value));
-updateTraffic(trafficMonth?.value ?? "july");
+function renderTrafficYear() {
+  const maxTraffic = Math.max(...trafficYear.map((month) => month.value ?? 0));
+  trafficYearLabel.textContent = "2026 год";
+
+  trafficBars.forEach((bar, index) => {
+    const month = trafficYear[index];
+    const barFill = bar.querySelector("i");
+    const hasData = month.value !== null;
+    const height = hasData ? Math.max(18, (month.value / maxTraffic) * 100) : 8;
+
+    barFill.style.setProperty("--bar-height", `${height}%`);
+    bar.classList.toggle("is-current", index === currentTrafficMonth);
+    bar.classList.toggle("is-future", !hasData);
+    bar.disabled = !hasData;
+    bar.dataset.tip = hasData ? `${month.name} · ${formatTraffic(month.value)}` : month.name;
+    bar.setAttribute(
+      "aria-label",
+      hasData ? `${month.name}: ${formatTraffic(month.value)}` : `${month.name}: данных пока нет`,
+    );
+    bar.addEventListener("click", () => selectTrafficMonth(index));
+  });
+
+  selectTrafficMonth(currentTrafficMonth);
+}
+
+renderTrafficYear();
