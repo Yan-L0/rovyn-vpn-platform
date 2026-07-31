@@ -37,9 +37,16 @@ class ProvisioningResult:
 class ProvisioningService:
     """Processes durable provisioning events through the provider boundary."""
 
-    def __init__(self, provider: VPNProvider, *, provider_name: str = "remnawave"):
+    def __init__(
+        self,
+        provider: VPNProvider,
+        *,
+        provider_name: str = "remnawave",
+        default_server_group_ids: tuple[str, ...] = (),
+    ):
         self._provider = provider
         self._provider_name = provider_name
+        self._default_server_group_ids = default_server_group_ids
 
     async def provision_order(
         self,
@@ -93,7 +100,7 @@ class ProvisioningService:
             expire_at=subscription.expires_at,
             traffic_limit_bytes=subscription.traffic_limit_bytes,
             device_limit=subscription.device_limit,
-            server_group_ids=subscription.server_groups,
+            server_group_ids=self._default_server_group_ids or subscription.server_groups,
             telegram_id=telegram_id,
         )
         try:

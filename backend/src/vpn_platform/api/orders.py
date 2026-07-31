@@ -234,7 +234,10 @@ async def yookassa_webhook(
                 detail="VPN provider is not configured",
             )
         async with db.begin():
-            result = await ProvisioningService(vpn_provider).provision_order(
+            result = await ProvisioningService(
+                vpn_provider,
+                default_server_group_ids=request.app.state.settings.default_squad_uuids,
+            ).provision_order(
                 db,
                 order_id=order_id,
                 now=now,

@@ -155,9 +155,11 @@ async def test_verified_payment_replay_reuses_entitlement() -> None:
 class FakeProvider:
     def __init__(self) -> None:
         self.created = 0
+        self.server_group_ids: tuple[str, ...] = ()
 
     async def create_user(self, user: Any, idempotency_key: str) -> ProviderUser:
         self.created += 1
+        self.server_group_ids = tuple(user.server_group_ids)
         assert user.external_key
         assert idempotency_key.startswith("provision-order:")
         return ProviderUser(
@@ -204,6 +206,38 @@ async def test_provisioning_activates_subscription_only_after_provider_success()
     assert subscription.status is SubscriptionStatus.ACTIVE
     assert event.processed_at is not None
     assert isinstance(result.vpn_account, VpnAccount)
+
+
+@pytest.mark.asyncio
+async def test_provisioning_uses_configured_remnawave_squads() -> None:
+    order = make_order()
+    subscription = make_subscription(order)
+    event = ServiceEvent(
+        aggregate_type="order",
+        aggregate_id=order.id,
+        event_type="vpn.subscription.provision",
+        payload={"subscription_id": str(subscription.id), "order_id": str(order.id)},
+        idempotency_key=f"provision-order:{order.id}",
+        available_at=datetime(2026, 7, 28, tzinfo=UTC),
+        attempts=0,
+    )
+    db = FakeSession(
+        objects={Order: order, Subscription: subscription},
+        scalars=[event, None, 42],
+    )
+    provider = FakeProvider()
+    squad_id = "8e319819-2110-44ab-b6f5-e76138233ed5"
+
+    await ProvisioningService(
+        provider,  # type: ignore[arg-type]
+        default_server_group_ids=(squad_id,),
+    ).provision_order(
+        db,  # type: ignore[arg-type]
+        order_id=order.id,
+        now=datetime(2026, 7, 28, tzinfo=UTC),
+    )
+
+    assert provider.server_group_ids == (squad_id,)
 
 
 def test_verified_payment_requires_a_paid_provider_document() -> None:
