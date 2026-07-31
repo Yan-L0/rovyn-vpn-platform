@@ -40,6 +40,45 @@ export interface AuthResponse {
   expires_at: string
 }
 
+export interface SubscriptionAccess {
+  subscription_id: string
+  status: string
+  provider_status: string
+  plan_name: string
+  subscription_url: string
+  starts_at: string
+  expires_at: string
+  device_limit: number
+  usage: {
+    used_bytes: number
+    traffic_limit_bytes: number
+    upload_bytes: number | null
+    download_bytes: number | null
+  }
+}
+
+export interface MonthlyUsage {
+  month: number
+  used_bytes: number
+  has_data: boolean
+}
+
+export interface YearlyUsage {
+  year: number
+  current_month: number
+  current_month_used_bytes: number
+  updated_at: string | null
+  source_status: 'fresh' | 'stale' | 'stored'
+  months: MonthlyUsage[]
+}
+
+export interface Device {
+  hardware_id: string
+  platform: string | null
+  model: string | null
+  last_seen_at: string | null
+}
+
 export type OrderStatus = 'pending' | 'awaiting_payment' | 'paid' | 'cancelled' | 'expired' | 'failed' | string
 export type PaymentStatus = 'pending' | 'waiting_for_capture' | 'succeeded' | 'cancelled' | 'failed' | string
 
@@ -78,6 +117,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
       credentials: 'include',
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
         ...(init?.headers ?? {}),
@@ -90,6 +130,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const detail = await response.json().catch(() => ({ detail: 'Сервис временно недоступен' }))
     throw new Error(typeof detail.detail === 'string' ? detail.detail : 'Сервис временно недоступен')
   }
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 
@@ -107,6 +148,28 @@ export function loadMe(): Promise<Me> {
 
 export function loadPlans(): Promise<Plan[]> {
   return request('/api/v1/catalog/plans')
+}
+
+export function loadSubscriptionAccess(): Promise<SubscriptionAccess> {
+  return request('/api/v2/subscription/access')
+}
+
+export function loadYearlyTraffic(year?: number): Promise<YearlyUsage> {
+  const query = year ? `?year=${year}` : ''
+  return request(`/api/v2/traffic/year${query}`)
+}
+
+export function loadDevices(): Promise<Device[]> {
+  return request('/api/v2/devices')
+}
+
+export function revokeDevice(hardwareId: string): Promise<void> {
+  const token = csrfToken()
+  if (!token) return Promise.reject(new Error('Сессия устарела. Войдите в кабинет ещё раз.'))
+  return request(`/api/v2/devices/${encodeURIComponent(hardwareId)}`, {
+    method: 'DELETE',
+    headers: { 'X-CSRF-Token': token },
+  })
 }
 
 export function createSbpOrder(planId: string, idempotencyKey: string): Promise<CheckoutOrder> {

@@ -13,6 +13,7 @@ from vpn_platform.api.account_v2 import (
     referral_summary,
     router,
     subscription_access,
+    yearly_traffic,
 )
 from vpn_platform.api.dependencies import AuthenticatedUser, require_csrf
 from vpn_platform.api.schemas_v2 import CreateSupportTicketRequest
@@ -22,8 +23,9 @@ from vpn_platform.db.models import (
     SubscriptionStatus,
     User,
     VpnAccount,
+    VpnUsageDaily,
 )
-from vpn_platform.domain.vpn_provider import AccountStatus, ProviderUser, Usage
+from vpn_platform.domain.vpn_provider import AccountStatus, ProviderUser, Usage, UsagePoint
 
 
 class Result:
@@ -34,15 +36,25 @@ class Result:
         return self.row
 
 
+class ScalarRows:
+    def __init__(self, rows: list[object]):
+        self.rows = rows
+
+    def all(self) -> list[object]:
+        return self.rows
+
+
 class FakeDatabase:
     def __init__(
         self,
         *,
         rows: list[object | None] | None = None,
         scalar_values: list[int] | None = None,
+        scalar_rows: list[object] | None = None,
     ):
         self.rows = list(rows or [])
         self.scalar_values = list(scalar_values or [])
+        self.scalar_rows = list(scalar_rows or [])
         self.added: list[object] = []
 
     async def execute(self, _statement: object) -> Result:
@@ -50,6 +62,9 @@ class FakeDatabase:
 
     async def scalar(self, _statement: object) -> int:
         return self.scalar_values.pop(0)
+
+    async def scalars(self, _statement: object) -> ScalarRows:
+        return ScalarRows(self.scalar_rows)
 
     def add(self, item: object) -> None:
         self.added.append(item)
@@ -78,6 +93,14 @@ class FakeProvider:
 
     async def get_usage(self, _provider_id: str) -> Usage:
         return Usage(used_bytes=10, traffic_limit_bytes=100)
+
+    async def get_usage_history(
+        self,
+        _provider_id: str,
+        start: object,
+        end: object,
+    ) -> list[UsagePoint]:
+        return [UsagePoint(usage_date=end, used_bytes=20)]
 
     async def revoke_device(self, provider_id: str, hardware_id: str) -> None:
         self.revoked = (provider_id, hardware_id)
@@ -154,6 +177,36 @@ async def test_subscription_access_uses_remnawave_as_source_of_url_and_usage() -
     assert result.subscription_url == "https://subscription.example/s/opaque"
     assert result.provider_status == "active"
     assert result.usage.used_bytes == 10
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.asyncio
+async def test_yearly_traffic_returns_twelve_real_month_buckets() -> None:
+    auth = authenticated_user()
+    subscription, _, account = subscription_row(auth.user.id)
+    now = datetime.now(UTC)
+    daily = VpnUsageDaily(
+        user_id=auth.user.id,
+        usage_date=now.date(),
+        used_bytes=20,
+        sampled_at=now,
+    )
+    db = FakeDatabase(rows=[(subscription, account), None], scalar_rows=[daily])
+    response = Response()
+
+    result = await yearly_traffic(
+        request_with(FakeProvider()),
+        response,
+        db,
+        auth,
+        year=now.year,
+    )
+
+    assert len(result.months) == 12
+    assert result.months[now.month - 1].used_bytes == 20
+    assert result.months[now.month - 1].has_data is True
+    assert result.current_month_used_bytes == 20
+    assert result.source_status == "fresh"
     assert response.headers["cache-control"] == "no-store"
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, Protocol
 
@@ -50,6 +50,12 @@ class Usage:
 
 
 @dataclass(frozen=True)
+class UsagePoint:
+    usage_date: date
+    used_bytes: int
+
+
+@dataclass(frozen=True)
 class Device:
     hardware_id: str
     platform: str | None
@@ -78,6 +84,12 @@ class VPNProvider(Protocol):
     async def assign_server_groups(self, provider_id: str, group_ids: Sequence[str]) -> None: ...
     async def remove_server_groups(self, provider_id: str, group_ids: Sequence[str]) -> None: ...
     async def get_usage(self, provider_id: str) -> Usage: ...
+    async def get_usage_history(
+        self,
+        provider_id: str,
+        start: date,
+        end: date,
+    ) -> Sequence[UsagePoint]: ...
     async def get_online_connections(self, provider_id: str) -> int: ...
     async def get_devices(self, provider_id: str) -> Sequence[Device]: ...
     async def revoke_device(self, provider_id: str, hardware_id: str) -> None: ...

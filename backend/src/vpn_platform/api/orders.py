@@ -4,7 +4,7 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
@@ -53,11 +53,14 @@ def _payment_response(order: Order, payment: Payment) -> OrderPaymentResponse:
 
 
 async def _latest_payment(db: DatabaseSession, order_id: uuid.UUID) -> Payment | None:
-    return await db.scalar(
-        select(Payment)
-        .where(Payment.order_id == order_id, Payment.provider == "yookassa")
-        .order_by(Payment.created_at.desc())
-        .limit(1)
+    return cast(
+        Payment | None,
+        await db.scalar(
+            select(Payment)
+            .where(Payment.order_id == order_id, Payment.provider == "yookassa")
+            .order_by(Payment.created_at.desc())
+            .limit(1)
+        ),
     )
 
 

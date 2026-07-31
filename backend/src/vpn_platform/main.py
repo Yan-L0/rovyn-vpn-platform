@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,12 +17,13 @@ from vpn_platform.core.config import get_settings
 from vpn_platform.db.session import create_engine, create_session_factory
 from vpn_platform.providers.remnawave import RemnawaveProvider
 from vpn_platform.providers.yookassa import YooKassaProvider
+from vpn_platform.services.usage_sync import usage_sync_loop
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     engine = create_engine(settings.DATABASE_URL)
     redis = Redis.from_url(settings.REDIS_URL, decode_responses=False)
@@ -45,7 +48,20 @@ async def lifespan(app: FastAPI):
     app.state.redis = redis
     app.state.vpn_provider = provider
     app.state.payment_provider = payment_provider
+    usage_task = None
+    if provider is not None:
+        usage_task = asyncio.create_task(
+            usage_sync_loop(
+                app.state.session_factory,
+                provider,
+                settings.USAGE_SYNC_INTERVAL_SECONDS,
+            )
+        )
     yield
+    if usage_task is not None:
+        usage_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await usage_task
     if payment_provider is not None:
         await payment_provider.close()
     if provider is not None:

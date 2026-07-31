@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -10,6 +10,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
@@ -226,6 +227,24 @@ class VpnAccount(Base):
             "provider",
             name="uq_vpn_accounts_subscription_provider",
         ),
+    )
+
+
+class VpnUsageDaily(Base):
+    __tablename__ = "vpn_usage_daily"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    usage_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    used_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sampled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint("used_bytes >= 0", name="ck_vpn_usage_daily_nonnegative"),
+        Index("ix_vpn_usage_daily_user_date", "user_id", "usage_date"),
     )
 
 

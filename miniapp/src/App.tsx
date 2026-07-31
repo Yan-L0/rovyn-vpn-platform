@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -40,12 +40,19 @@ import {
 import {
   authenticate,
   createSbpOrder,
+  loadDevices,
   loadMe,
   loadOrder,
   loadPlans,
+  loadSubscriptionAccess,
+  loadYearlyTraffic,
+  revokeDevice,
   type CheckoutOrder,
+  type Device,
   type Me,
   type Plan,
+  type SubscriptionAccess,
+  type YearlyUsage,
 } from './api'
 
 type View = 'dashboard' | 'plans' | 'connect' | 'devices' | 'referral' | 'analytics' | 'wallet' | 'support' | 'chat' | 'legal'
@@ -82,8 +89,26 @@ function formatMoney(value: number, currency: string): string {
 }
 
 function formatBytes(value: number | null): string {
-  if (!value) return '0 ГБ'
-  return `${(value / 1024 ** 3).toFixed(value < 10 * 1024 ** 3 ? 1 : 0)} ГБ`
+  if (value === null) return '—'
+  if (value < 1024) return `${value} Б`
+  const units = ['КБ', 'МБ', 'ГБ', 'ТБ']
+  let amount = value / 1024
+  let index = 0
+  while (amount >= 1024 && index < units.length - 1) {
+    amount /= 1024
+    index += 1
+  }
+  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: amount >= 10 ? 1 : 2 }).format(amount)} ${units[index]}`
+}
+
+function maskSubscriptionUrl(value: string): string {
+  try {
+    const parsed = new URL(value)
+    const firstSegment = parsed.pathname.split('/').filter(Boolean)[0]
+    return `${parsed.origin}/${firstSegment ? `${firstSegment}/` : ''}••••••••`
+  } catch {
+    return 'Персональная ссылка Remnawave'
+  }
 }
 
 function Brand({ compact = false }: { compact?: boolean }) {
@@ -281,9 +306,29 @@ function MiniApp() {
   const [view, setView] = useState<View>(initialView)
   const [me, setMe] = useState<Me | null>(null)
   const [plans, setPlans] = useState<Plan[]>([])
+  const [access, setAccess] = useState<SubscriptionAccess | null>(null)
+  const [traffic, setTraffic] = useState<YearlyUsage | null>(null)
+  const [devices, setDevices] = useState<Device[]>([])
+  const [liveError, setLiveError] = useState<string | null>(null)
   const [loading, setLoading] = useState(!forceLogin)
   const [showBrowserAuth, setShowBrowserAuth] = useState(forceLogin)
   const [error, setError] = useState<string | null>(null)
+
+  const refreshRemnawave = useCallback(async () => {
+    const results = await Promise.allSettled([
+      loadSubscriptionAccess(),
+      loadYearlyTraffic(),
+      loadDevices(),
+    ])
+    const [accessResult, trafficResult, devicesResult] = results
+    if (accessResult.status === 'fulfilled') setAccess(accessResult.value)
+    if (trafficResult.status === 'fulfilled') setTraffic(trafficResult.value)
+    if (devicesResult.status === 'fulfilled') setDevices(devicesResult.value)
+    const failure = results.find((result) => result.status === 'rejected')
+    setLiveError(failure?.status === 'rejected'
+      ? failure.reason instanceof Error ? failure.reason.message : 'Remnawave временно недоступен'
+      : null)
+  }, [])
 
   useEffect(() => {
     window.Telegram?.WebApp.ready?.()
@@ -303,6 +348,7 @@ function MiniApp() {
         const [profile, catalog] = await Promise.all([loadMe(), loadPlans()])
         setMe(profile)
         setPlans(catalog)
+        if (profile.subscription) await refreshRemnawave()
       } catch (reason) {
         if (!embedded && !browserBypass) {
           setShowBrowserAuth(true)
@@ -314,7 +360,16 @@ function MiniApp() {
       }
     }
     void boot()
-  }, [browserBypass, embedded, forceLogin])
+  }, [browserBypass, embedded, forceLogin, refreshRemnawave])
+
+  useEffect(() => {
+    if (!me?.subscription) return
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshRemnawave()
+    }
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => document.removeEventListener('visibilitychange', refreshWhenVisible)
+  }, [me?.subscription, refreshRemnawave])
 
   function navigate(next: View) {
     window.location.hash = next
@@ -351,13 +406,13 @@ function MiniApp() {
         <div className="reference-gradient reference-gradient-four" />
         <header className="reference-mobile-header"><Brand /><button type="button" onClick={() => navigate('wallet')} aria-label="Настройки"><Settings /></button></header>
         <main className="reference-content">
-          {view === 'dashboard' && <Dashboard me={me} onNavigate={navigate} />}
+          {view === 'dashboard' && <Dashboard me={me} access={access} traffic={traffic} devices={devices} liveError={liveError} onNavigate={navigate} />}
           {view === 'plans' && <Plans plans={plans} browserCheckout={!embedded && !browserBypass} onBack={() => navigate('dashboard')} />}
-          {view === 'connect' && <Connect hasSubscription={Boolean(me.subscription)} onNavigate={navigate} />}
-          {view === 'devices' && <Devices onNavigate={navigate} />}
+          {view === 'connect' && <Connect subscriptionUrl={access?.subscription_url ?? null} onNavigate={navigate} />}
+          {view === 'devices' && <Devices devices={devices} deviceLimit={access?.device_limit ?? me.subscription?.device_limit ?? 0} onRevoke={async (hardwareId) => { await revokeDevice(hardwareId); await refreshRemnawave() }} onNavigate={navigate} />}
           {view === 'referral' && <Referral me={me} onNavigate={navigate} />}
           {view === 'analytics' && <ReferralAnalytics onBack={() => navigate('referral')} />}
-          {view === 'wallet' && <Profile me={me} onNavigate={navigate} />}
+          {view === 'wallet' && <Profile me={me} access={access} devices={devices} onNavigate={navigate} />}
           {view === 'support' && <Support onNavigate={navigate} />}
           {view === 'chat' && <SupportChat onBack={() => navigate('support')} />}
           {view === 'legal' && <LegalDocuments onBack={() => navigate('wallet')} />}
@@ -435,24 +490,53 @@ function formatDate(value: string): string {
     .replace('.', '')
 }
 
-function Dashboard({ me, onNavigate }: { me: Me; onNavigate: (view: View) => void }) {
+function Dashboard({ me, access, traffic, devices, liveError, onNavigate }: {
+  me: Me
+  access: SubscriptionAccess | null
+  traffic: YearlyUsage | null
+  devices: Device[]
+  liveError: string | null
+  onNavigate: (view: View) => void
+}) {
   const subscription = me.subscription
+  const providerActive = access?.provider_status === 'active'
+  const expiry = access?.expires_at ?? subscription?.expires_at
+  const maximum = Math.max(...(traffic?.months.map((month) => month.used_bytes) ?? [0]), 1)
+  const monthNames = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
   return (
     <section className="reference-home">
-      <div className={`subscription-notice ${subscription ? 'active' : ''}`}>
-        <span aria-hidden="true">{subscription ? <Check /> : <Zap />}</span>
-        <p>{subscription ? `Подписка NOVA активна до ${formatDate(subscription.expires_at)}` : 'Продлите подписку, чтобы снова получить доступ ко всем функциям NOVA'}</p>
+      <div className={`subscription-notice ${providerActive ? 'active' : ''}`}>
+        <span aria-hidden="true">{providerActive ? <Check /> : <Zap />}</span>
+        <p>{providerActive && expiry ? `Подписка NOVA активна в Remnawave до ${formatDate(expiry)}` : subscription ? 'Проверяем состояние подписки в Remnawave' : 'Продлите подписку, чтобы снова получить доступ ко всем функциям NOVA'}</p>
       </div>
       <div className="reference-account">
         <Brand />
         <span className="reference-balance"><small>Баланс</small><strong>{formatMoney(me.wallet_balance_minor, me.wallet_currency)}</strong></span>
-        <span className={`reference-status ${subscription ? 'active' : ''}`}><i />{subscription ? 'Подписка активна' : 'Подписка закончилась'}</span>
+        <span className={`reference-status ${access?.provider_status === 'active' ? 'active' : ''}`}><i />{access ? `Remnawave: ${access.provider_status === 'active' ? 'активна' : access.provider_status}` : subscription ? 'Получаем статус Remnawave' : 'Подписка закончилась'}</span>
         <div className="reference-chips">
-          <span>{subscription ? `до ${subscription.device_limit}` : '0'} устройств</span>
-          <span>LTE безлимит</span>
+          <span>{access ? `${devices.length} из ${access.device_limit} устройств` : 'Устройства недоступны'}</span>
+          <span>{access ? access.plan_name : 'Тариф недоступен'}</span>
         </div>
         <button className="reference-primary" type="button" onClick={() => onNavigate('plans')}><WalletCards />{subscription ? 'Продлить подписку' : 'Оплатить подписку'}</button>
         <button className="reference-outline" type="button" onClick={() => onNavigate('connect')}><Settings />Настроить VPN</button>
+        {subscription && (
+          <section className="live-usage" aria-label={`Трафик за ${traffic?.year ?? new Date().getFullYear()} год`}>
+            <header>
+              <div><small>Трафик в текущем месяце</small><strong>{traffic ? formatBytes(traffic.current_month_used_bytes) : '—'}</strong></div>
+              <span className={traffic?.source_status === 'fresh' ? 'fresh' : ''}>{traffic?.source_status === 'fresh' ? 'Обновлено из Remnawave' : traffic ? 'Последние сохранённые данные' : 'Нет данных'}</span>
+            </header>
+            <div className="year-bars">
+              {(traffic?.months ?? Array.from({ length: 12 }, (_, index) => ({ month: index + 1, used_bytes: 0, has_data: false }))).map((month) => (
+                <div className={month.month === traffic?.current_month ? 'current' : ''} key={month.month} title={month.has_data ? `${monthNames[month.month - 1]}: ${formatBytes(month.used_bytes)}` : `${monthNames[month.month - 1]}: данных пока нет`}>
+                  <i style={{ height: month.has_data ? `${Math.max(7, (month.used_bytes / maximum) * 100)}%` : '3px' }} />
+                  <small>{monthNames[month.month - 1]}</small>
+                </div>
+              ))}
+            </div>
+            <footer><span>{traffic?.year ?? new Date().getFullYear()} · 12 месяцев</span><button type="button" onClick={() => onNavigate('devices')}>{devices.length} устройств <ArrowRight /></button></footer>
+            {liveError && <p className="live-data-error" role="status">Не все данные обновились: {liveError}</p>}
+          </section>
+        )}
         <div className="reference-feature-cards">
           <button type="button" onClick={() => onNavigate('referral')}>
             <strong>Пригласи друга</strong><span className="feature-art gift-art"><Gift /></span><i><ArrowRight /></i>
@@ -474,22 +558,17 @@ function planPeriod(days: number): { count: string; label: string } {
 }
 
 function Plans({ plans, browserCheckout, onBack }: { plans: Plan[]; browserCheckout: boolean; onBack: () => void }) {
-  const fallbackPlans: Plan[] = [
-    { id: 'year', code: 'year', name: '12 месяцев', description: 'Максимальная выгода', duration_days: 365, traffic_limit_bytes: 0, device_limit: 10, price_minor: 179900, currency: 'RUB', server_groups: [] },
-    { id: 'half-year', code: 'half-year', name: '6 месяцев', description: 'Выгодная подписка', duration_days: 180, traffic_limit_bytes: 0, device_limit: 10, price_minor: 99900, currency: 'RUB', server_groups: [] },
-    { id: 'quarter', code: 'quarter', name: '3 месяца', description: 'Попробовать надолго', duration_days: 90, traffic_limit_bytes: 0, device_limit: 10, price_minor: 53900, currency: 'RUB', server_groups: [] },
-    { id: 'month', code: 'month', name: '1 месяц', description: 'Гибкий старт', duration_days: 30, traffic_limit_bytes: 0, device_limit: 10, price_minor: 19900, currency: 'RUB', server_groups: [] },
-  ]
-  const catalog = (plans.length ? plans : fallbackPlans).slice().sort((a, b) => b.duration_days - a.duration_days)
+  const catalog = plans.slice().sort((a, b) => b.duration_days - a.duration_days)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [carouselOffset, setCarouselOffset] = useState(0)
   const [checkout, setCheckout] = useState<CheckoutOrder | null>(null)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const selected = catalog[Math.min(selectedIndex, catalog.length - 1)]
-  const periodMonths = Math.max(1, Math.round(selected.duration_days / 30))
-  const perMonthMinor = Math.round(selected.price_minor / periodMonths)
-  const perDayMinor = Math.round(selected.price_minor / Math.max(1, selected.duration_days))
+  const durationDays = selected?.duration_days ?? 30
+  const periodMonths = Math.max(1, Math.round(durationDays / 30))
+  const perMonthMinor = Math.round((selected?.price_minor ?? 0) / periodMonths)
+  const perDayMinor = Math.round((selected?.price_minor ?? 0) / Math.max(1, durationDays))
   const discountFor = (days: number) => days >= 360 ? '-25%' : days >= 170 ? '-16%' : days >= 80 ? '-10%' : ''
   const checkoutPaid = checkout?.status === 'paid' || checkout?.payment_status === 'succeeded'
   const checkoutStopped = checkout?.status === 'cancelled'
@@ -501,7 +580,7 @@ function Plans({ plans, browserCheckout, onBack }: { plans: Plan[]; browserCheck
   useEffect(() => {
     setCheckout(null)
     setCheckoutError(null)
-  }, [selected.id])
+  }, [selected?.id])
 
   useEffect(() => {
     if (!checkout || checkoutPaid || checkoutStopped) return
@@ -519,6 +598,7 @@ function Plans({ plans, browserCheckout, onBack }: { plans: Plan[]; browserCheck
   }, [checkout, checkoutPaid, checkoutStopped])
 
   async function startCheckout() {
+    if (!selected) return
     setCheckoutLoading(true)
     setCheckoutError(null)
     try {
@@ -547,6 +627,10 @@ function Plans({ plans, browserCheckout, onBack }: { plans: Plan[]; browserCheck
     } finally {
       setCheckoutLoading(false)
     }
+  }
+
+  if (!selected) {
+    return <section className="purchase-screen reference-plans"><PagePill title="Покупка подписки" onBack={onBack} /><div className="cabinet-alert"><ShieldCheck /> Активные тарифы не настроены на сервере.</div></section>
   }
 
   return (
@@ -620,11 +704,13 @@ function Plans({ plans, browserCheckout, onBack }: { plans: Plan[]; browserCheck
   )
 }
 
-function Connect({ hasSubscription, onNavigate }: { hasSubscription: boolean; onNavigate: (view: View) => void }) {
+function Connect({ subscriptionUrl, onNavigate }: { subscriptionUrl: string | null; onNavigate: (view: View) => void }) {
+  const hasSubscription = Boolean(subscriptionUrl)
   const [mode, setMode] = useState<'where' | 'here' | 'other'>('where')
   const [client, setClient] = useState<'happ' | 'v2ray'>('happ')
   const [platform, setPlatform] = useState<string | null>(null)
   const [showImportHelp, setShowImportHelp] = useState(false)
+  const [copied, setCopied] = useState(false)
   const platforms = [
     { id: 'ios', title: 'iOS', note: 'App Store', icon: <Smartphone /> },
     { id: 'android', title: 'Android', note: 'Google Play', icon: <TabletSmartphone /> },
@@ -639,6 +725,14 @@ function Connect({ hasSubscription, onNavigate }: { hasSubscription: boolean; on
     if (platform) setPlatform(null)
     else if (mode !== 'where') setMode('where')
     else onNavigate('dashboard')
+  }
+
+  async function copySubscriptionUrl() {
+    if (!subscriptionUrl) return
+    await navigator.clipboard.writeText(subscriptionUrl)
+    setCopied(true)
+    window.Telegram?.WebApp.HapticFeedback?.impactOccurred('medium')
+    window.setTimeout(() => setCopied(false), 1800)
   }
 
   if (mode === 'where') {
@@ -694,24 +788,60 @@ function Connect({ hasSubscription, onNavigate }: { hasSubscription: boolean; on
       <PagePill title={`Настроить на ${selectedPlatform.title}`} onBack={goBack} />
       <ol className="setup-steps">
         <li><span>1</span><div><h2>Скачайте приложение {selectedPlatform.id === 'chrome' ? 'NOVA' : 'Happ'}</h2><p>Установите совместимое приложение из официального магазина или дистрибутива.</p><button type="button" disabled><Download />{selectedPlatform.note.includes('Store') || selectedPlatform.note.includes('Play') ? selectedPlatform.note : `Скачать для ${selectedPlatform.title}`}</button></div></li>
-        <li><span>2</span><div><h2>Добавьте ключ-ссылку</h2><p>Скопируйте ключ и импортируйте его на экране подключения в приложении VPN.</p><div className="masked-key"><code>{hasSubscription ? 'https://connect.nova-vpn.app/subscription/••••••••' : 'Ключ появится после активации подписки'}</code><button type="button" disabled={!hasSubscription} aria-label="Скопировать ключ-ссылку"><Copy /></button></div><button className="help-link" type="button" onClick={() => setShowImportHelp(true)}>Как импортировать ссылку?</button></div></li>
+        <li><span>2</span><div><h2>Добавьте ключ-ссылку</h2><p>Скопируйте персональную ссылку Remnawave и импортируйте её на экране подключения.</p><div className="masked-key"><code>{subscriptionUrl ? maskSubscriptionUrl(subscriptionUrl) : 'Ссылка появится после активации подписки'}</code><button type="button" disabled={!subscriptionUrl} onClick={() => void copySubscriptionUrl()} aria-label="Скопировать ключ-ссылку">{copied ? <Check /> : <Copy />}</button></div>{copied && <small className="copy-success" role="status">Ссылка скопирована</small>}<button className="help-link" type="button" onClick={() => setShowImportHelp(true)}>Как импортировать ссылку?</button></div></li>
       </ol>
       {showImportHelp && <div className="support-modal-backdrop" role="presentation" onMouseDown={() => setShowImportHelp(false)}><article className="support-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title" onMouseDown={(event) => event.stopPropagation()}><button className="support-modal-close" type="button" aria-label="Закрыть" onClick={() => setShowImportHelp(false)}><X /></button><h2 id="import-title">Как импортировать ссылку</h2><div className="import-demo"><span>+</span><i /><i /><i /></div><p>Вставьте ссылку на экране подключения в приложении VPN.</p><button className="reference-primary" type="button" onClick={() => setShowImportHelp(false)}>Понятно</button></article></div>}
     </section>
   )
 }
 
-function Devices({ onNavigate }: { onNavigate: (view: View) => void }) {
+function Devices({ devices, deviceLimit, onRevoke, onNavigate }: {
+  devices: Device[]
+  deviceLimit: number
+  onRevoke: (hardwareId: string) => Promise<void>
+  onNavigate: (view: View) => void
+}) {
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const [revoking, setRevoking] = useState<string | null>(null)
+  const [deviceError, setDeviceError] = useState<string | null>(null)
+  const freeSlots = Math.max(0, deviceLimit - devices.length)
+
+  async function removeDevice(hardwareId: string) {
+    if (confirming !== hardwareId) {
+      setConfirming(hardwareId)
+      return
+    }
+    setRevoking(hardwareId)
+    setDeviceError(null)
+    try {
+      await onRevoke(hardwareId)
+      setConfirming(null)
+    } catch (reason) {
+      setDeviceError(reason instanceof Error ? reason.message : 'Не удалось удалить устройство')
+    } finally {
+      setRevoking(null)
+    }
+  }
+
   return (
     <section className="devices-screen">
       <PagePill title="Устройства" onBack={() => onNavigate('wallet')} action={<button type="button" aria-label="Добавить устройство" onClick={() => onNavigate('connect')}><Plus /></button>} />
       <article className="connected-devices-card">
-        <div><h2>Подключенные устройства</h2><p>Активно: 0 устройств</p><button type="button" disabled>Сбросить все устройства</button></div>
+        <div><h2>Подключенные устройства</h2><p>Remnawave видит: {devices.length} из {deviceLimit}</p><small>Список обновляется при каждом открытии кабинета.</small></div>
         <div className="device-art" aria-hidden="true"><Smartphone /><TabletSmartphone /></div>
       </article>
       <div className="device-slots">
-        {[1, 2, 3].map((slot) => <button type="button" key={slot} onClick={() => onNavigate('connect')}><span><Smartphone /></span><span><strong>Добавить устройство</strong><small>VPN ещё на одном устройстве</small></span></button>)}
+        {devices.map((device) => (
+          <article className="live-device-row" key={device.hardware_id}>
+            <span><Smartphone /></span>
+            <span><strong>{device.model || device.platform || 'Устройство'}</strong><small>{device.platform || 'Платформа не определена'}{device.last_seen_at ? ` · ${formatDate(device.last_seen_at)}` : ''}</small></span>
+            <button className={confirming === device.hardware_id ? 'confirm' : ''} type="button" disabled={revoking === device.hardware_id} onClick={() => void removeDevice(device.hardware_id)}>{revoking === device.hardware_id ? <LoaderCircle className="spinner" /> : confirming === device.hardware_id ? 'Подтвердить' : 'Удалить'}</button>
+          </article>
+        ))}
+        {Array.from({ length: freeSlots }, (_, index) => <button type="button" key={`slot-${index}`} onClick={() => onNavigate('connect')}><span><Plus /></span><span><strong>Добавить устройство</strong><small>Свободное место Remnawave</small></span></button>)}
+        {!devices.length && !freeSlots && <p className="empty-devices">Устройства пока не зарегистрированы или лимит тарифа равен нулю.</p>}
       </div>
+      {deviceError && <p className="live-data-error" role="alert">{deviceError}</p>}
     </section>
   )
 }
@@ -766,14 +896,14 @@ function ReferralAnalytics({ onBack }: { onBack: () => void }) {
   )
 }
 
-function Profile({ me, onNavigate }: { me: Me; onNavigate: (view: View) => void }) {
+function Profile({ me, access, devices, onNavigate }: { me: Me; access: SubscriptionAccess | null; devices: Device[]; onNavigate: (view: View) => void }) {
   const telegramLabel = me.user.display_name || 'Telegram подключён'
   const [showSoon, setShowSoon] = useState(false)
   return (
     <section className="settings-screen">
       <h1 className="reference-page-pill">Настройки</h1>
       <article className="settings-promo">
-        <div><h2>Подписка</h2><p>Настройте подписку под свои<br />потребности</p><button type="button" onClick={() => onNavigate('plans')}>Настроить <ArrowRight /></button></div>
+        <div><h2>{access?.plan_name ?? 'Подписка'}</h2><p>{access ? `Активна до ${formatDate(access.expires_at)} · ${devices.length} из ${access.device_limit} устройств` : me.subscription ? 'Получаем данные из Remnawave' : 'Подписка не активна'}</p><button type="button" onClick={() => onNavigate('plans')}>Настроить <ArrowRight /></button></div>
         <div className="settings-pro-art" aria-hidden="true"><ShieldCheck /><strong>PRO</strong><i /></div>
       </article>
 

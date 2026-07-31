@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -17,6 +17,7 @@ from vpn_platform.domain.vpn_provider import (
     ProviderUser,
     ProvisionUser,
     Usage,
+    UsagePoint,
 )
 
 
@@ -109,6 +110,41 @@ class RemnawaveProvider:
             used_bytes=self._integer(user.get("usedTrafficBytes")),
             traffic_limit_bytes=self._integer(user.get("trafficLimitBytes")),
         )
+
+    async def get_usage_history(
+        self,
+        provider_id: str,
+        start: date,
+        end: date,
+    ) -> Sequence[UsagePoint]:
+        if end < start:
+            raise ValueError("usage history end cannot be before start")
+        response = await self._request(
+            "GET",
+            (
+                f"/api/bandwidth-stats/users/{quote(provider_id, safe='')}"
+                f"?start={start.isoformat()}&end={end.isoformat()}&topNodesLimit=1"
+            ),
+        )
+        if not isinstance(response, dict):
+            raise ProviderError("Remnawave returned an invalid usage history document")
+        categories = response.get("categories")
+        values = response.get("sparklineData")
+        if not isinstance(categories, list) or not isinstance(values, list):
+            raise ProviderError("Remnawave usage history is missing required series")
+        if len(categories) != len(values):
+            raise ProviderError("Remnawave usage history series lengths do not match")
+
+        points: list[UsagePoint] = []
+        for raw_date, raw_value in zip(categories, values, strict=True):
+            if not isinstance(raw_date, str):
+                raise ProviderError("Remnawave usage history contains an invalid date")
+            try:
+                usage_date = date.fromisoformat(raw_date)
+            except ValueError as error:
+                raise ProviderError("Remnawave usage history contains an invalid date") from error
+            points.append(UsagePoint(usage_date=usage_date, used_bytes=self._integer(raw_value)))
+        return points
 
     async def get_online_connections(self, provider_id: str) -> int:
         raise ProviderCapabilityUnavailable(
@@ -262,8 +298,10 @@ class RemnawaveProvider:
     def _extract_uuid(value: Any) -> str:
         if isinstance(value, str):
             return value
-        if isinstance(value, dict) and isinstance(value.get("uuid"), str):
-            return value["uuid"]
+        if isinstance(value, dict):
+            squad_uuid = value.get("uuid")
+            if isinstance(squad_uuid, str):
+                return squad_uuid
         raise ProviderError("Remnawave squad entry has no UUID")
 
     @staticmethod

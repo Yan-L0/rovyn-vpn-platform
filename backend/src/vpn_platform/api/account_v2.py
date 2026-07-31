@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from datetime import UTC, date, datetime, timedelta
+from typing import Annotated, cast
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 from sqlalchemy import func, select
 
 from vpn_platform.api.dependencies import (
@@ -16,10 +17,12 @@ from vpn_platform.api.dependencies import (
 from vpn_platform.api.schemas_v2 import (
     CreateSupportTicketRequest,
     DeviceResponse,
+    MonthlyUsageResponse,
     ReferralSummaryResponse,
     SubscriptionAccessResponse,
     SubscriptionUsageResponse,
     SupportTicketResponse,
+    YearlyUsageResponse,
 )
 from vpn_platform.db.models import (
     Plan,
@@ -28,8 +31,10 @@ from vpn_platform.db.models import (
     Subscription,
     SupportTicket,
     VpnAccount,
+    VpnUsageDaily,
 )
 from vpn_platform.domain.vpn_provider import ProviderError, VPNProvider
+from vpn_platform.services.usage_sync import store_usage_points
 
 router = APIRouter(prefix="/api/v2", tags=["account-v2"])
 CurrentUser = Annotated[AuthenticatedUser, Depends(get_current_user)]
@@ -44,7 +49,7 @@ def _provider(request: Request) -> VPNProvider:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="VPN service is temporarily unavailable",
         )
-    return provider
+    return cast(VPNProvider, provider)
 
 
 async def _vpn_account(
@@ -126,9 +131,11 @@ async def subscription_access(
 @router.get("/devices", response_model=list[DeviceResponse])
 async def devices(
     request: Request,
+    response: Response,
     db: DatabaseSession,
     auth: CurrentUser,
 ) -> list[DeviceResponse]:
+    response.headers["Cache-Control"] = "no-store"
     row = await _vpn_account(db, auth.user.id)
     if row is None:
         return []
@@ -149,6 +156,74 @@ async def devices(
         )
         for item in items
     ]
+
+
+@router.get("/traffic/year", response_model=YearlyUsageResponse)
+async def yearly_traffic(
+    request: Request,
+    response: Response,
+    db: DatabaseSession,
+    auth: CurrentUser,
+    year: Annotated[int | None, Query(ge=2020, le=2200)] = None,
+) -> YearlyUsageResponse:
+    now = datetime.now(UTC)
+    selected_year = year or now.year
+    row = await _vpn_account(db, auth.user.id)
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VPN subscription not found",
+        )
+    _, account = row
+
+    source_status = "stored"
+    if selected_year == now.year:
+        try:
+            points = await _provider(request).get_usage_history(
+                account.provider_user_id,
+                now.date() - timedelta(days=13),
+                now.date(),
+            )
+            await store_usage_points(db, auth.user.id, points)
+            await db.commit()
+            source_status = "fresh"
+        except ProviderError:
+            source_status = "stale"
+
+    start = date(selected_year, 1, 1)
+    end = date(selected_year, 12, 31)
+    rows = (
+        await db.scalars(
+            select(VpnUsageDaily).where(
+                VpnUsageDaily.user_id == auth.user.id,
+                VpnUsageDaily.usage_date >= start,
+                VpnUsageDaily.usage_date <= end,
+            )
+        )
+    ).all()
+    totals = [0] * 12
+    has_data = [False] * 12
+    updated_at = None
+    for item in rows:
+        index = item.usage_date.month - 1
+        totals[index] += item.used_bytes
+        has_data[index] = True
+        if updated_at is None or item.sampled_at > updated_at:
+            updated_at = item.sampled_at
+
+    current_month = now.month if selected_year == now.year else 12
+    response.headers["Cache-Control"] = "no-store"
+    return YearlyUsageResponse(
+        year=selected_year,
+        current_month=current_month,
+        current_month_used_bytes=totals[current_month - 1],
+        updated_at=updated_at,
+        source_status=source_status,
+        months=[
+            MonthlyUsageResponse(month=index + 1, used_bytes=value, has_data=has_data[index])
+            for index, value in enumerate(totals)
+        ],
+    )
 
 
 @router.delete("/devices/{hardware_id}", status_code=status.HTTP_204_NO_CONTENT)

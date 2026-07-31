@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import httpx
 import pytest
@@ -127,3 +127,50 @@ async def test_health_checks_authenticated_api_contract() -> None:
 
     assert result.healthy is True
     assert result.detail == "ok"
+
+
+@pytest.mark.asyncio
+async def test_usage_history_maps_daily_remnawave_series() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == (
+            "/api/bandwidth-stats/users/22222222-2222-4222-8222-222222222222"
+        )
+        assert dict(request.url.params) == {
+            "start": "2026-07-29",
+            "end": "2026-07-31",
+            "topNodesLimit": "1",
+        }
+        return httpx.Response(
+            200,
+            json={
+                "response": {
+                    "categories": ["2026-07-29", "2026-07-30", "2026-07-31"],
+                    "sparklineData": [1024, 2048, 4096],
+                    "series": [],
+                    "topNodes": [],
+                }
+            },
+            request=request,
+        )
+
+    provider = RemnawaveProvider("https://panel.example", "api-token")
+    await provider._client.aclose()
+    provider._client = httpx.AsyncClient(
+        base_url="https://panel.example",
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        result = await provider.get_usage_history(
+            "22222222-2222-4222-8222-222222222222",
+            date(2026, 7, 29),
+            date(2026, 7, 31),
+        )
+    finally:
+        await provider.close()
+
+    assert [(point.usage_date, point.used_bytes) for point in result] == [
+        (date(2026, 7, 29), 1024),
+        (date(2026, 7, 30), 2048),
+        (date(2026, 7, 31), 4096),
+    ]

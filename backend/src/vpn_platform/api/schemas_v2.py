@@ -32,6 +32,21 @@ class DeviceResponse(BaseModel):
     last_seen_at: datetime | None
 
 
+class MonthlyUsageResponse(BaseModel):
+    month: int = Field(ge=1, le=12)
+    used_bytes: int = Field(ge=0)
+    has_data: bool
+
+
+class YearlyUsageResponse(BaseModel):
+    year: int = Field(ge=2020, le=2200)
+    current_month: int = Field(ge=1, le=12)
+    current_month_used_bytes: int = Field(ge=0)
+    updated_at: datetime | None
+    source_status: str
+    months: list[MonthlyUsageResponse]
+
+
 class ReferralSummaryResponse(BaseModel):
     referral_code: str
     referral_url: str

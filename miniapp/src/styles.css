@@ -1568,6 +1568,53 @@ body.cabinet-body { background: #000; }
 .device-slots strong { font-size: 13px; }
 .device-slots small { color: #81928e; font-size: 10px; }
 
+.live-usage {
+  width: 100%;
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 26px;
+  background: linear-gradient(145deg, rgba(17,27,25,.9), rgba(10,17,16,.78));
+  box-shadow: inset 0 1px rgba(255,255,255,.035);
+  backdrop-filter: blur(18px);
+}
+.live-usage > header, .live-usage > footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.live-usage > header > div { display: flex; flex-direction: column; gap: 5px; }
+.live-usage > header small, .live-usage > footer { color: #82938f; font-size: 10px; }
+.live-usage > header strong { color: #f1f7f5; font-size: 22px; letter-spacing: -.04em; }
+.live-usage > header > span { max-width: 135px; color: #9aacaa; font-size: 9px; text-align: right; }
+.live-usage > header > span.fresh { color: #12cabe; }
+.year-bars { height: 112px; margin: 18px 0 12px; display: grid; grid-template-columns: repeat(12, 1fr); align-items: end; gap: 6px; }
+.year-bars > div { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 7px; }
+.year-bars i { width: 100%; min-height: 3px; border-radius: 999px 999px 3px 3px; display: block; background: rgba(118,150,145,.3); transition: height .45s cubic-bezier(.22,1,.36,1), background .2s ease; }
+.year-bars .current i { background: linear-gradient(to top, #087e76, #19d5c8); box-shadow: 0 0 16px rgba(18,202,190,.24); }
+.year-bars small { color: #657773; font-size: 7px; }
+.year-bars .current small { color: #eaf5f2; }
+.live-usage > footer { align-items: center; }
+.live-usage > footer button { padding: 0; border: 0; display: inline-flex; align-items: center; gap: 4px; color: #10cfc2; background: transparent; font: inherit; }
+.live-usage > footer svg { width: 12px; }
+.live-data-error { margin: 12px 0 0; color: #e09b91; font-size: 9px; line-height: 1.45; }
+
+.connected-devices-card > div:first-child { position: relative; z-index: 2; }
+.connected-devices-card > div:first-child > small { max-width: 240px; display: block; color: #657773; font-size: 9px; }
+.live-device-row { min-height: 76px; padding: 12px 14px; border: 1px solid rgba(255,255,255,.09); border-radius: 23px; display: grid; grid-template-columns: 38px minmax(0,1fr) auto; align-items: center; gap: 12px; background: rgba(17,20,20,.8); }
+.live-device-row > span:first-child { width: 36px; height: 36px; border-radius: 13px; display: grid; place-items: center; color: #13cabe; background: rgba(8,91,84,.42); }
+.live-device-row > span:nth-child(2) { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.live-device-row > span:nth-child(2) strong, .live-device-row > span:nth-child(2) small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-device-row > button { min-height: 31px; padding: 0 10px; border: 1px solid rgba(224,98,85,.24); border-radius: 11px; color: #df7569; background: rgba(101,35,29,.18); font-size: 9px; }
+.live-device-row > button.confirm { color: #071513; border-color: #14cabe; background: #14cabe; }
+.live-device-row > button svg { width: 14px; }
+.empty-devices { margin: 8px 0; color: #81928e; font-size: 11px; text-align: center; }
+.copy-success { margin-top: 6px; display: block; color: #12cabe; font-size: 9px; }
+
+@media (max-width: 599px) {
+  .live-usage { padding: 15px; border-radius: 22px; }
+  .year-bars { height: 96px; gap: 4px; }
+  .year-bars small { font-size: 6px; }
+  .live-device-row { grid-template-columns: 36px minmax(0,1fr); }
+  .live-device-row > button { grid-column: 2; justify-self: start; }
+}
+
 .analytics-filter { height: 42px; margin-top: 24px; padding: 3px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; display: grid; grid-template-columns: repeat(3,1fr); background: rgba(18,21,21,.75); }
 .analytics-filter button { border: 0; border-radius: inherit; color: #71827e; background: transparent; font-size: 11px; }
 .analytics-filter button.active { color: #f0f6f4; background: rgba(87,113,109,.44); }
