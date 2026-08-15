@@ -12,5 +12,7 @@ dist/
 coverage.xml
 *.log
 .DS_Store
+Icon
 volumes/
 .cache/
+docs/
