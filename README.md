@@ -8,6 +8,8 @@ This repository contains the full application and deployment definitions. It
 does **not** contain production secrets, private keys, customer data, payment
 credentials or live node credentials.
 
+Русское руководство: [README.ru.md](README.ru.md).
+
 ## What is included
 
 - FastAPI backend: authentication, catalog, orders, YooKassa webhook, device
