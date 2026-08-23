@@ -2654,3 +2654,15 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   .access-overview__signal { width:76px; padding-bottom:28px; }
   .access-overview__facts { min-height:84px; }
 }
+
+/* Must remain last: Telegram fullscreen controls overlay this top band. */
+@media (max-width:640px) {
+  .chrome { height:8px; }
+  .chrome .section-label {
+    position:relative;
+    top:-25px;
+  }
+  .page-title,
+  .page-title.compact,
+  .profile-title { margin-top:0; }
+}
