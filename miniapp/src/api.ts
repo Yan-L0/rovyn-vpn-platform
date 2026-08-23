@@ -1,5 +1,6 @@
 export interface User {
   id: string
+  telegram_id?: number | null
   display_name: string
   locale: string | null
 }

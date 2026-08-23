@@ -12,6 +12,7 @@ class TelegramAuthRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: uuid.UUID
+    telegram_id: int | None = None
     display_name: str
     locale: str | None
 

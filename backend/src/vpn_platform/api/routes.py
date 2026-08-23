@@ -15,7 +15,7 @@ from vpn_platform.api.schemas import (
     TelegramAuthRequest,
     UserResponse,
 )
-from vpn_platform.db.models import LedgerEntry, Plan, Subscription, SubscriptionStatus, Wallet
+from vpn_platform.db.models import LedgerEntry, Plan, Subscription, SubscriptionStatus, TelegramAccount, Wallet
 from vpn_platform.security.telegram import (
     TelegramAuthError,
     TelegramIdentity,
@@ -94,7 +94,7 @@ async def authenticate_telegram(
     )
     response.headers["Cache-Control"] = "no-store"
     return AuthResponse(
-        user=UserResponse(id=user.id, display_name=user.display_name, locale=user.locale),
+        user=UserResponse(id=user.id, telegram_id=identity.telegram_id, display_name=user.display_name, locale=user.locale),
         csrf_token=issued.csrf_token,
         expires_at=issued.expires_at,
     )
@@ -107,6 +107,9 @@ async def me(
 ) -> MeResponse:
     wallet = await db.scalar(
         select(Wallet).where(Wallet.user_id == auth.user.id, Wallet.currency == "RUB")
+    )
+    telegram_id = await db.scalar(
+        select(TelegramAccount.telegram_id).where(TelegramAccount.user_id == auth.user.id)
     )
     balance = 0
     if wallet is not None:
@@ -146,6 +149,7 @@ async def me(
     return MeResponse(
         user=UserResponse(
             id=auth.user.id,
+            telegram_id=telegram_id,
             display_name=auth.user.display_name,
             locale=auth.user.locale,
         ),

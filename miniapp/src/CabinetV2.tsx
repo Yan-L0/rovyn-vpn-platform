@@ -333,6 +333,7 @@ export default function CabinetV2() {
   const shownUsage = traffic?.months.find((month) => month.month === shownMonth)?.used_bytes ?? 0
   const maxUsage = Math.max(1, ...(traffic?.months.map((month) => month.used_bytes) ?? [1]))
   const displayName = me.user.display_name || 'Пользователь NOVA'
+  const telegramPhoto = window.Telegram?.WebApp.initDataUnsafe?.user?.photo_url
   const sortedPlans = [...plans].sort((a, b) => planRank(a) - planRank(b))
 
   return (
@@ -342,7 +343,7 @@ export default function CabinetV2() {
         <header className="chrome">
           <button className="brand" onClick={() => navigate('home')} aria-label="NOVA"><i /><span>NOVA</span></button>
           <p className="section-label">Личный кабинет</p>
-          <button className="avatar" onClick={() => navigate('profile')} aria-label="Открыть профиль">{initials(displayName)}</button>
+          <button className="avatar" onClick={() => navigate('profile')} aria-label="Открыть профиль">{telegramPhoto ? <img src={telegramPhoto} alt="" /> : initials(displayName)}</button>
         </header>
 
         <section className={`screen ${view === 'home' ? 'is-visible' : ''}`}>
@@ -420,7 +421,7 @@ export default function CabinetV2() {
         </section>
 
         <section className={`screen ${view === 'profile' ? 'is-visible' : ''}`}>
-          <header className="profile-title"><div className="profile-orbit"><span>{initials(displayName)}</span></div><div><p className="kicker">Профиль</p><h2>{displayName}</h2><small>ID {me.user.id}</small></div></header>
+          <header className="profile-title"><div className="profile-orbit"><span>{telegramPhoto ? <img src={telegramPhoto} alt="" /> : initials(displayName)}</span></div><div><p className="kicker">Профиль</p><h2>{displayName}</h2><small>ID {me.user.telegram_id ?? me.user.id}</small></div></header>
           <div className="profile-grid">
             <article className="account-card"><p className="kicker">Способы входа</p><button onClick={() => setModal({ kicker: 'Email', title: 'Скоро появится.', copy: 'Сейчас основным способом входа остаётся Telegram.' })}><Icon name="mail" /><span><small>Email</small><strong>Не подключён</strong></span><Icon name="chevron" /></button><button onClick={() => setModal({ kicker: 'Способ входа', title: 'Telegram подключён.', copy: 'Профиль защищён подписью Telegram Mini App. Email-вход будет добавлен отдельно.' })}><Icon name="telegram" /><span><small>Telegram</small><strong>{embedded ? 'Подключён' : 'Браузерная сессия'}</strong></span><b>✓</b></button></article>
             <article className="settings-card"><p className="kicker">Настройки</p><button onClick={() => setNotifications((value) => !value)}><span>Уведомления</span><small>{notifications ? 'Включены' : 'Выключены'}</small></button><button onClick={() => setModal({ kicker: 'Язык', title: 'Русский.', copy: 'Другие языки будут доступны в следующих версиях.' })}><span>Язык</span><small>Русский</small></button><button onClick={() => setModal({ kicker: 'Сессия', title: 'Закрыть кабинет?', copy: 'Для завершения сессии закройте Mini App или вкладку браузера.', action: 'Закрыть', onAction: () => window.Telegram?.WebApp.close?.() })}><span>Выйти</span><Icon name="arrow" /></button></article>

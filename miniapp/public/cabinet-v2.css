@@ -128,6 +128,7 @@ svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width:
   backdrop-filter: blur(18px);
   font-size: 11px; font-weight: 700;
 }
+.avatar img, .profile-orbit img { width:100%; height:100%; display:block; object-fit:cover; border-radius:inherit; }
 
 .screen { position: relative; z-index: 2; display: none; opacity: 0; transform: translateY(18px); }
 .screen.is-visible { display: block; animation: reveal .65s var(--ease) forwards; }
@@ -1060,9 +1061,12 @@ body.modal-open { overflow:hidden; }
     background:radial-gradient(ellipse 88% 62% at 50% 40%,rgba(2,12,10,.86) 0%,rgba(3,15,12,.74) 34%,rgba(5,21,17,.3) 70%,transparent 100%),linear-gradient(180deg,rgba(2,12,10,.14),rgba(2,12,10,.33));
   }
   .chrome { height:84px; }
+  /* Telegram owns the top-left and top-right controls in fullscreen Mini Apps. */
+  .chrome { grid-template-columns:1fr; height:88px; padding-top:env(safe-area-inset-top); }
+  .chrome .brand, .chrome .avatar { display:none; }
   .section-label {
-    padding:8px 13px; border:1px solid rgba(185,218,205,.14); border-radius:999px;
-    background:rgba(10,29,24,.48); color:rgba(235,246,241,.8); font-size:11px; font-weight:750; letter-spacing:.04em;
+    justify-self:center; padding:0; border:0; border-radius:0; background:transparent;
+    color:rgba(235,246,241,.72); font-size:12px; font-weight:750; letter-spacing:.08em;
   }
   .screen { padding-bottom:8px; }
   .page-title,.page-title.compact { justify-items:center; margin:4px auto 24px; padding:0 42px; text-align:center; }
