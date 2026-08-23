@@ -1228,6 +1228,16 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   .access-overview__facts { min-height:84px; }
 }
 
+/* Final fullscreen spacing: Telegram provides the native top controls, so
+   the cabinet content starts immediately below that band on every screen. */
+@media (max-width:640px) {
+  .chrome { height:32px; }
+  .chrome .section-label { top:-18px; }
+  .page-title,
+  .page-title.compact,
+  .profile-title { margin-top:0; }
+}
+
 /* v7 — one subscription source, expressive plans and functional drawers */
 .hero-route-copy { width:min(70%,680px); }
 .hero-route-copy > #hero-plan-copy { max-width:430px; margin:24px 0 0; color:#a5b8b3; font-size:13px; line-height:1.65; }
