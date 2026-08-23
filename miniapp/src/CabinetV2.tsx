@@ -421,7 +421,13 @@ export default function CabinetV2() {
         </section>
 
         <section className={`screen ${view === 'profile' ? 'is-visible' : ''}`}>
-          <header className="profile-title"><div className="profile-orbit"><span>{telegramPhoto ? <img src={telegramPhoto} alt="" /> : initials(displayName)}</span></div><div><p className="kicker">Профиль</p><h2>{displayName}</h2><small>ID {me.user.telegram_id ?? me.user.id}</small></div></header>
+          <header className="profile-title">
+            <p className="kicker">Профиль</p>
+            <div className="profile-identity-row">
+              <div className="profile-orbit"><span>{telegramPhoto ? <img src={telegramPhoto} alt="" /> : initials(displayName)}</span></div>
+              <div className="profile-identity-copy"><h2>{displayName}</h2><small>ID {me.user.telegram_id ?? me.user.id}</small></div>
+            </div>
+          </header>
           <div className="profile-grid">
             <article className="account-card"><p className="kicker">Способы входа</p><button onClick={() => setModal({ kicker: 'Email', title: 'Скоро появится.', copy: 'Сейчас основным способом входа остаётся Telegram.' })}><Icon name="mail" /><span><small>Email</small><strong>Не подключён</strong></span><Icon name="chevron" /></button><button onClick={() => setModal({ kicker: 'Способ входа', title: 'Telegram подключён.', copy: 'Профиль защищён подписью Telegram Mini App. Email-вход будет добавлен отдельно.' })}><Icon name="telegram" /><span><small>Telegram</small><strong>{embedded ? 'Подключён' : 'Браузерная сессия'}</strong></span><b>✓</b></button></article>
             <article className="settings-card"><p className="kicker">Настройки</p><button onClick={() => setNotifications((value) => !value)}><span>Уведомления</span><small>{notifications ? 'Включены' : 'Выключены'}</small></button><button onClick={() => setModal({ kicker: 'Язык', title: 'Русский.', copy: 'Другие языки будут доступны в следующих версиях.' })}><span>Язык</span><small>Русский</small></button><button onClick={() => setModal({ kicker: 'Сессия', title: 'Закрыть кабинет?', copy: 'Для завершения сессии закройте Mini App или вкладку браузера.', action: 'Закрыть', onAction: () => window.Telegram?.WebApp.close?.() })}><span>Выйти</span><Icon name="arrow" /></button></article>

@@ -122,13 +122,18 @@ svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width:
 .avatar {
   justify-self: end;
   width: 42px; height: 42px;
+  display:grid;
+  padding:3px;
+  place-items:center;
+  overflow:hidden;
+  aspect-ratio:1;
   border: 1px solid var(--line);
   border-radius: 50%;
   background: rgba(10, 27, 26, .52);
   backdrop-filter: blur(18px);
   font-size: 11px; font-weight: 700;
 }
-.avatar img, .profile-orbit img { width:100%; height:100%; display:block; object-fit:cover; border-radius:inherit; }
+.avatar img, .profile-orbit img { width:100%; height:100%; display:block; object-fit:cover; border-radius:50%; }
 
 .screen { position: relative; z-index: 2; display: none; opacity: 0; transform: translateY(18px); }
 .screen.is-visible { display: block; animation: reveal .65s var(--ease) forwards; }
@@ -781,7 +786,11 @@ svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width:
 .questions span { font-size:16px; font-weight:600; }
 .questions svg { width:18px; color:var(--muted); }
 
-.profile-title { display:flex; align-items:center; justify-content:center; gap:28px; margin:45px auto 58px; }
+.profile-title { display:grid; justify-items:center; gap:18px; margin:45px auto 58px; text-align:center; }
+.profile-title > .kicker { margin:0; }
+.profile-identity-row { display:flex; align-items:center; justify-content:center; gap:28px; }
+.profile-identity-copy { min-width:0; text-align:left; }
+.profile-identity-copy small { display:block; margin-top:12px; }
 .profile-title h2 { font-size:clamp(64px,8vw,110px); }
 .profile-title small { color:var(--muted); }
 .profile-orbit { position:relative; display:grid; width:150px; height:150px; place-items:center; border:1px solid #30332e; border-radius:50%; }
@@ -2665,4 +2674,33 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   .page-title,
   .page-title.compact,
   .profile-title { margin-top:0; }
+
+  .profile-title {
+    display:grid;
+    width:100%;
+    max-width:100%;
+    justify-items:center;
+    gap:14px;
+    padding:0;
+    text-align:center;
+  }
+  .profile-title > .kicker { width:100%; text-align:center; }
+  .profile-identity-row {
+    display:flex;
+    width:min(100%,430px);
+    align-items:center;
+    justify-content:center;
+    gap:clamp(18px,5vw,26px);
+  }
+  .profile-identity-copy { text-align:left; }
+  .profile-identity-copy small { margin-top:12px; }
+  .profile-orbit {
+    width:clamp(104px,28vw,122px);
+    height:clamp(104px,28vw,122px);
+  }
+  .profile-orbit span {
+    width:clamp(68px,18vw,80px);
+    height:clamp(68px,18vw,80px);
+  }
+  .timeline-row > div { border-radius:999px; }
 }
