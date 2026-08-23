@@ -1207,6 +1207,15 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   }
 }
 
+/* Telegram fullscreen chrome: keep our title on the same horizontal band as
+   Telegram's close/menu controls without adding another visual toolbar. */
+@media (max-width:640px) {
+  .chrome .section-label {
+    position: relative;
+    top: -52px;
+  }
+}
+
 @media (max-width:360px), (max-height:700px) and (max-width:640px) {
   .access-overview {
     min-height:580px;
