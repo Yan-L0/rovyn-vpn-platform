@@ -1,0 +1,17 @@
+[Unit]
+Description=Rovyn VPN node compose stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/remnanode
+ExecStart=/usr/bin/docker compose -f /opt/remnanode/docker-compose.yml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f /opt/remnanode/docker-compose.yml down
+RemainAfterExit=yes
+TimeoutStartSec=120
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

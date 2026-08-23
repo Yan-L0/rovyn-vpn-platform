@@ -8,6 +8,7 @@ compose_file="${base_dir}/docker-compose.yml"
 staged_compose="${base_dir}/compose.node.yml"
 sysctl_file="/etc/sysctl.d/99-rovyn-vpn.conf"
 service_file="/etc/systemd/system/rovyn-network-tuning.service"
+compose_service_file="/etc/systemd/system/rovyn-node-compose.service"
 renewal_hook="/etc/letsencrypt/renewal-hooks/deploy/remnanode-cert-deploy"
 committed="false"
 
@@ -20,6 +21,7 @@ for required in \
   "${staged_compose}" \
   "${base_dir}/99-rovyn-vpn.conf" \
   "${base_dir}/rovyn-network-tuning.service" \
+  "${base_dir}/rovyn-node-compose.service" \
   "${base_dir}/remnanode-cert-deploy.sh" \
   "${base_dir}/nginx-reality-fallback.conf" \
   "${base_dir}/reality-fallback.html" \
@@ -89,12 +91,14 @@ systemd-analyze verify "${base_dir}/rovyn-network-tuning.service"
 
 install -m 0644 "${base_dir}/99-rovyn-vpn.conf" "${sysctl_file}"
 install -m 0644 "${base_dir}/rovyn-network-tuning.service" "${service_file}"
+install -m 0644 "${base_dir}/rovyn-node-compose.service" "${compose_service_file}"
 install -m 0755 "${base_dir}/remnanode-cert-deploy.sh" "${renewal_hook}"
 install -m 0600 "${staged_compose}" "${compose_file}"
 
 sysctl --system >/dev/null
 systemctl daemon-reload
 systemctl enable --now rovyn-network-tuning.service
+systemctl enable --now rovyn-node-compose.service
 docker compose -f "${compose_file}" up -d --remove-orphans
 
 attempt=0
