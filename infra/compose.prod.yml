@@ -9,7 +9,7 @@ x-app-environment: &app-environment
   REDIS_URL: redis://redis:6379/0
   TELEGRAM_AUTH_DEV_BYPASS: "false"
   VPN_PROVIDER: remnawave
-  REMNAWAVE_BASE_URL: https://panel.vpn.example
+  REMNAWAVE_BASE_URL: ${REMNAWAVE_BASE_URL}
 
 x-app-service: &app-service
   env_file:
