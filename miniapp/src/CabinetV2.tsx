@@ -352,7 +352,7 @@ export default function CabinetV2() {
               <section className="home-access-intro">
                 <div className="home-access-intro__copy">
                   <p className="kicker">Ваш доступ</p>
-                  <h1>Интернет без<br /><span>лишнего.</span></h1>
+                  <h1>Интернет<br /><span>без лишнего.</span></h1>
                   <p>{active ? 'Подписка защищает все ваши устройства. Ссылка уже готова для подключения.' : 'Выберите тариф — личная ссылка для Happ и v2RayTun появится сразу после оплаты.'}</p>
                 </div>
                 <div className="home-access-intro__signal" aria-hidden="true"><div className="home-access-intro__orbit"><i /><i /><i /><span>R</span></div></div>

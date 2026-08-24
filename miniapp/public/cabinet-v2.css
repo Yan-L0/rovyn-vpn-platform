@@ -3097,3 +3097,52 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
     font-size:10px;
   }
 }
+
+/* v16 — compact thumb-reachable mobile composition matching the approved mockup */
+@media (max-width:640px) {
+  .home-primary {
+    min-height:0;
+    grid-template-rows:auto auto;
+    gap:12px;
+  }
+  .home-access-intro {
+    display:block;
+    min-height:342px;
+    padding:26px 8px 12px;
+  }
+  .home-access-intro__copy h1 {
+    max-width:292px;
+    font-size:clamp(44px,12.2vw,54px);
+    line-height:.9;
+  }
+  .home-access-intro__copy > p:last-child {
+    max-width:276px;
+    margin-top:17px;
+  }
+  .home-access-intro__signal {
+    position:absolute;
+    top:112px;
+    right:-2px;
+    width:clamp(96px,27vw,112px);
+    margin:0;
+  }
+  .home-access-plan {
+    min-height:224px;
+    padding:20px 18px 82px;
+  }
+  .home-access-plan__action {
+    right:16px;
+    bottom:12px;
+    left:16px;
+    width:auto;
+    min-height:52px;
+    justify-content:space-between;
+  }
+}
+
+@media (max-width:360px), (max-height:700px) and (max-width:640px) {
+  .home-access-intro { min-height:312px; padding-top:20px; }
+  .home-access-intro__copy h1 { font-size:clamp(40px,11.7vw,47px); }
+  .home-access-intro__signal { top:102px; width:94px; }
+  .home-access-plan { min-height:210px; }
+}
