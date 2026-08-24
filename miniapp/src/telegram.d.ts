@@ -11,6 +11,9 @@ interface TelegramWebApp {
   colorScheme: 'light' | 'dark'
   ready(): void
   expand(): void
+  requestFullscreen?(): void
+  exitFullscreen?(): void
+  isFullscreen?: boolean
   close(): void
   enableClosingConfirmation(): void
   disableVerticalSwipes?(): void

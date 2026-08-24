@@ -235,8 +235,16 @@ export default function CabinetV2() {
   }, [])
 
   useEffect(() => {
-    window.Telegram?.WebApp.ready?.()
-    window.Telegram?.WebApp.expand?.()
+    const telegram = window.Telegram?.WebApp
+    telegram?.ready?.()
+    telegram?.expand?.()
+    if (telegram?.requestFullscreen && !telegram.isFullscreen) {
+      try {
+        telegram.requestFullscreen()
+      } catch {
+        // Unsupported clients remain in Telegram's expanded full-size mode.
+      }
+    }
     const onHash = () => setView(initialView())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
