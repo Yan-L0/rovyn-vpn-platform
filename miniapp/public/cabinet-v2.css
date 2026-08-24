@@ -1201,9 +1201,9 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   touch-action:none;
   user-select:none;
   -webkit-user-select:none;
-  cursor:grab;
+  cursor:default;
 }
-.modal-grabber:active { cursor:grabbing; }
+.modal-surface { overscroll-behavior:contain; }
 .modal-grabber > i {
   display:block;
   width:42px;
@@ -3257,7 +3257,7 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   .action-layer.is-closing .modal-surface { animation:none; }
 }
 
-/* v19 — frontend-only administrator page preview (?admin=1#admin) */
+/* v19 — owner-only administrator page */
 .admin-page-title { margin-bottom:24px; }
 .admin-page-title h2 { max-width:none; }
 .admin-preview-layout { display:grid; max-width:900px; gap:14px; margin:0 auto; }
@@ -3292,7 +3292,13 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
 .admin-preview-total strong { color:#c6d39a; font-size:18px; }
 .admin-preview-submit { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; min-height:54px; }
 .admin-preview-submit svg { width:17px; }
+.admin-preview-message { grid-column:1/-1; margin:0; padding:12px 14px; border-radius:15px; font-size:12px; }
+.admin-preview-message.is-error { color:#ffc8c1; background:rgba(168,53,45,.18); }
+.admin-preview-message.is-success { color:#c9e6a0; background:rgba(132,159,77,.16); }
+.admin-preview-panel button:disabled { opacity:.55; cursor:not-allowed; }
 @media (max-width:640px) {
+  .modal-surface { touch-action:pan-y; }
+  .modal-grabber { touch-action:none; }
   .admin-page-title { margin-bottom:18px; }
   .admin-page-title h2 { font-size:clamp(40px,12vw,54px); }
   .admin-preview-search { grid-template-columns:1fr; }

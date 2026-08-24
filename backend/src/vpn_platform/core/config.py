@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: SecretStr = SecretStr("")
     TELEGRAM_AUTH_MAX_AGE_SECONDS: Annotated[int, Field(ge=30, le=3600)] = 300
     TELEGRAM_AUTH_DEV_BYPASS: bool = False
+    BOT_OWNER_TELEGRAM_IDS: str = ""
 
     VPN_PROVIDER: ProviderName = ProviderName.REMNAWAVE
     REMNAWAVE_BASE_URL: str = ""
@@ -66,6 +67,14 @@ class Settings(BaseSettings):
     def default_squad_uuids(self) -> tuple[str, ...]:
         return tuple(
             item.strip() for item in self.REMNAWAVE_DEFAULT_SQUAD_UUIDS.split(",") if item.strip()
+        )
+
+    @property
+    def bot_owner_telegram_ids(self) -> frozenset[int]:
+        return frozenset(
+            int(item.strip())
+            for item in self.BOT_OWNER_TELEGRAM_IDS.split(",")
+            if item.strip().isdigit()
         )
 
     @model_validator(mode="after")

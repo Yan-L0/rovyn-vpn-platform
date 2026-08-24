@@ -11,6 +11,7 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 
 from vpn_platform.api.account_v2 import router as account_v2_router
+from vpn_platform.api.admin import router as admin_router
 from vpn_platform.api.orders import router as orders_router
 from vpn_platform.api.routes import router
 from vpn_platform.core.config import get_settings
@@ -88,6 +89,7 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(orders_router)
 app.include_router(account_v2_router)
+app.include_router(admin_router)
 
 
 @app.get("/health/live", include_in_schema=False)

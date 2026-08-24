@@ -11,6 +11,11 @@ def test_development_allows_explicit_telegram_bypass() -> None:
     assert settings.TELEGRAM_AUTH_DEV_BYPASS is True
 
 
+def test_bot_owner_ids_are_parsed_without_exposing_defaults() -> None:
+    settings = Settings(BOT_OWNER_TELEGRAM_IDS="101, 202,invalid")
+    assert settings.bot_owner_telegram_ids == frozenset({101, 202})
+
+
 def test_production_rejects_telegram_bypass() -> None:
     with pytest.raises(ValidationError, match="DEV_BYPASS"):
         Settings(

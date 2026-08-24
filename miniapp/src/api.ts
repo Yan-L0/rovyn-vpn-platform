@@ -93,6 +93,27 @@ export interface CheckoutOrder {
   confirmation_url: string | null
 }
 
+export interface AdminAccess {
+  is_owner: boolean
+}
+
+export interface AdminUserLookup {
+  found: boolean
+  telegram_id: number
+  display_name: string | null
+  username: string | null
+  remnawave_linked: boolean
+  subscription: { plan_name: string; status: string; expires_at: string } | null
+}
+
+export interface AdminGrantResult {
+  telegram_id: number
+  display_name: string
+  status: string
+  expires_at: string
+  subscription_url: string | null
+}
+
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:8080'
 const CSRF_STORAGE_KEY = 'nova.csrf-token'
 
@@ -190,4 +211,31 @@ export function createSbpOrder(planId: string, idempotencyKey: string): Promise<
 
 export function loadOrder(orderId: string): Promise<CheckoutOrder> {
   return request(`/api/v1/orders/${encodeURIComponent(orderId)}`)
+}
+
+export function loadAdminAccess(): Promise<AdminAccess> {
+  return request('/api/v1/admin/access')
+}
+
+export function findAdminUser(telegramId: number): Promise<AdminUserLookup> {
+  return request(`/api/v1/admin/users/${telegramId}`)
+}
+
+export function grantAdminAccess(payload: {
+  telegram_id: number
+  plan_id: string
+  device_limit: number
+  starts_on: string
+  comment: string
+}): Promise<AdminGrantResult> {
+  const token = csrfToken()
+  if (!token) return Promise.reject(new Error('Сессия устарела. Войдите в кабинет ещё раз.'))
+  return request('/api/v1/admin/grants', {
+    method: 'POST',
+    headers: {
+      'X-CSRF-Token': token,
+      'X-Request-ID': window.crypto.randomUUID(),
+    },
+    body: JSON.stringify(payload),
+  })
 }

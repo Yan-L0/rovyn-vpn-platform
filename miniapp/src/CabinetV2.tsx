@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   authenticate,
   createSbpOrder,
+  findAdminUser,
+  grantAdminAccess,
+  loadAdminAccess,
   loadDevices,
   loadMe,
   loadOrder,
@@ -10,6 +13,8 @@ import {
   loadYearlyTraffic,
   revokeDevice,
   type CheckoutOrder,
+  type AdminGrantResult,
+  type AdminUserLookup,
   type Device,
   type Me,
   type Plan,
@@ -32,7 +37,7 @@ const monthLetters = ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О'
 const visualPreview = import.meta.env.VITE_CABINET_PREVIEW === 'true'
 
 const previewMe: Me = {
-  user: { id: '1641241934', display_name: 'Ян', locale: 'ru' },
+  user: { id: 'preview-user', telegram_id: 100000001, display_name: 'Пользователь', locale: 'ru' },
   wallet_balance_minor: 0,
   wallet_currency: 'RUB',
   referral_code: 'ROVYN-PREVIEW',
@@ -62,7 +67,6 @@ function Icon({ name }: { name: string }) {
 
 function initialView(): CabinetView {
   const hash = window.location.hash.replace('#', '') as CabinetView
-  if (hash === 'admin' && new URLSearchParams(window.location.search).get('admin') !== '1') return 'home'
   return views.has(hash) ? hash : 'home'
 }
 
@@ -175,7 +179,6 @@ function SvgSprite() {
 
 export default function CabinetV2() {
   const embedded = embeddedInTelegram()
-  const adminPreview = new URLSearchParams(window.location.search).get('admin') === '1'
   const browserBypass = new URLSearchParams(window.location.search).get('app') === '1'
   const [view, setView] = useState<CabinetView>(initialView)
   const [me, setMe] = useState<Me | null>(null)
@@ -194,6 +197,17 @@ export default function CabinetV2() {
   const [modal, setModal] = useState<ModalState>(null)
   const [modalClosing, setModalClosing] = useState(false)
   const [notifications, setNotifications] = useState(true)
+  const [isOwner, setIsOwner] = useState(false)
+  const [ownerChecked, setOwnerChecked] = useState(false)
+  const [adminTelegramId, setAdminTelegramId] = useState('')
+  const [adminUser, setAdminUser] = useState<AdminUserLookup | null>(null)
+  const [adminPlanId, setAdminPlanId] = useState('')
+  const [adminDeviceLimit, setAdminDeviceLimit] = useState('5')
+  const [adminStartsOn, setAdminStartsOn] = useState(new Date().toISOString().slice(0, 10))
+  const [adminComment, setAdminComment] = useState('Ручная выдача')
+  const [adminBusy, setAdminBusy] = useState(false)
+  const [adminError, setAdminError] = useState<string | null>(null)
+  const [adminResult, setAdminResult] = useState<AdminGrantResult | null>(null)
   const modalRef = useRef<HTMLElement | null>(null)
 
   const refreshLive = useCallback(async () => {
@@ -237,21 +251,38 @@ export default function CabinetV2() {
           setAccess(previewAccess)
           setTraffic(previewTraffic)
           setDevices(previewDevices)
+          setIsOwner(new URLSearchParams(window.location.search).get('admin') === '1')
+          setOwnerChecked(true)
           return
         }
         if (embedded || browserBypass) await authenticate(window.Telegram?.WebApp.initData ?? '')
-        const [profile, catalog] = await Promise.all([loadMe(), loadPlans()])
+        const [profile, catalog, adminAccess] = await Promise.all([
+          loadMe(),
+          loadPlans(),
+          loadAdminAccess().catch(() => ({ is_owner: false })),
+        ])
         setMe(profile)
         setPlans(catalog)
+        setIsOwner(adminAccess.is_owner)
+        setOwnerChecked(true)
         if (profile.subscription) await refreshLive()
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : 'Не удалось открыть кабинет')
       } finally {
+        setOwnerChecked(true)
         setLoading(false)
       }
     }
     void boot()
   }, [browserBypass, embedded, refreshLive])
+
+  useEffect(() => {
+    if (!adminPlanId && plans.length) setAdminPlanId(plans[0].id)
+  }, [adminPlanId, plans])
+
+  useEffect(() => {
+    if (ownerChecked && !isOwner && view === 'admin') navigate('home')
+  }, [isOwner, ownerChecked, view])
 
   useEffect(() => {
     if (!payment || ['paid', 'cancelled', 'expired', 'failed'].includes(payment.status)) return
@@ -270,12 +301,14 @@ export default function CabinetV2() {
     const grabbers = Array.from(document.querySelectorAll<HTMLElement>('.modal-grabber'))
     const starts = new WeakMap<HTMLElement, number>()
     const down = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return
       const grabber = event.currentTarget as HTMLElement
       starts.set(grabber, event.clientY)
       grabber.setPointerCapture(event.pointerId)
       grabber.parentElement?.style.setProperty('transition', 'none')
     }
     const move = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return
       const grabber = event.currentTarget as HTMLElement
       const start = starts.get(grabber)
       if (start == null) return
@@ -283,6 +316,7 @@ export default function CabinetV2() {
       grabber.parentElement?.style.setProperty('--sheet-drag-y', `${distance}px`)
     }
     const up = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return
       const grabber = event.currentTarget as HTMLElement
       const start = starts.get(grabber)
       if (start == null) return
@@ -293,19 +327,71 @@ export default function CabinetV2() {
       grabber.parentElement?.style.setProperty('--sheet-drag-y', '0px')
       if (distance > 86) { if (paymentPlan) closePayment(); else closeAction() }
     }
+    const cancel = (event: PointerEvent) => {
+      const grabber = event.currentTarget as HTMLElement
+      if (!starts.has(grabber)) return
+      starts.delete(grabber)
+      if (grabber.hasPointerCapture(event.pointerId)) grabber.releasePointerCapture(event.pointerId)
+      grabber.parentElement?.style.removeProperty('transition')
+      grabber.parentElement?.style.setProperty('--sheet-drag-y', '0px')
+    }
     grabbers.forEach((grabber) => {
       grabber.addEventListener('pointerdown', down)
       grabber.addEventListener('pointermove', move)
       grabber.addEventListener('pointerup', up)
-      grabber.addEventListener('pointercancel', up)
+      grabber.addEventListener('pointercancel', cancel)
     })
     return () => grabbers.forEach((grabber) => {
       grabber.removeEventListener('pointerdown', down)
       grabber.removeEventListener('pointermove', move)
       grabber.removeEventListener('pointerup', up)
-      grabber.removeEventListener('pointercancel', up)
+      grabber.removeEventListener('pointercancel', cancel)
     })
   }, [modal, paymentPlan])
+
+  async function searchAdminUser() {
+    const telegramId = Number(adminTelegramId.trim())
+    if (!Number.isSafeInteger(telegramId) || telegramId <= 0) {
+      setAdminError('Введите корректный Telegram ID')
+      return
+    }
+    setAdminBusy(true)
+    setAdminError(null)
+    setAdminResult(null)
+    try {
+      setAdminUser(await findAdminUser(telegramId))
+    } catch (reason) {
+      setAdminError(reason instanceof Error ? reason.message : 'Не удалось найти пользователя')
+    } finally {
+      setAdminBusy(false)
+    }
+  }
+
+  async function submitAdminGrant() {
+    const telegramId = Number(adminTelegramId.trim())
+    if (!Number.isSafeInteger(telegramId) || telegramId <= 0 || !adminPlanId) {
+      setAdminError('Укажите Telegram ID и тариф')
+      return
+    }
+    setAdminBusy(true)
+    setAdminError(null)
+    setAdminResult(null)
+    try {
+      const result = await grantAdminAccess({
+        telegram_id: telegramId,
+        plan_id: adminPlanId,
+        device_limit: Number(adminDeviceLimit),
+        starts_on: adminStartsOn,
+        comment: adminComment,
+      })
+      setAdminResult(result)
+      setAdminUser(await findAdminUser(telegramId))
+    } catch (reason) {
+      setAdminError(reason instanceof Error ? reason.message : 'Не удалось выдать доступ')
+    } finally {
+      setAdminBusy(false)
+    }
+  }
 
   function navigate(next: CabinetView) {
     setView(next)
@@ -380,6 +466,7 @@ export default function CabinetV2() {
   const displayName = me.user.display_name || 'Пользователь NOVA'
   const telegramPhoto = window.Telegram?.WebApp.initDataUnsafe?.user?.photo_url
   const sortedPlans = [...plans].sort((a, b) => planRank(a) - planRank(b))
+  const adminPlan = plans.find((plan) => plan.id === adminPlanId) ?? sortedPlans[0]
 
   return (
     <>
@@ -473,22 +560,24 @@ export default function CabinetV2() {
           </div>
         </section>
 
-        {adminPreview && <section className={`screen ${view === 'admin' ? 'is-visible' : ''}`}>
+        {isOwner && <section className={`screen ${view === 'admin' ? 'is-visible' : ''}`}>
           <header className="page-title admin-page-title"><p className="kicker">Пользователи</p><h2>Выдать доступ</h2></header>
           <div className="admin-preview-layout">
             <section className="admin-preview-panel admin-preview-search">
-              <label><span>Telegram ID</span><input inputMode="numeric" defaultValue="123456789" /></label>
-              <button type="button">Найти</button>
-              <div className="admin-preview-user"><span className="admin-preview-avatar">ИП</span><p><small>Telegram ID · @username</small><strong>Иван Петров</strong><small>Профиль найден в Rovyn</small></p><b>Связан</b></div>
+              <label><span>Telegram ID</span><input inputMode="numeric" value={adminTelegramId} onChange={(event) => setAdminTelegramId(event.target.value.replace(/\D/g, ''))} placeholder="Введите ID пользователя" /></label>
+              <button type="button" disabled={adminBusy} onClick={() => void searchAdminUser()}>{adminBusy ? 'Ищем…' : 'Найти'}</button>
+              {adminUser && <div className="admin-preview-user"><span className="admin-preview-avatar">{initials(adminUser.display_name || 'Новый пользователь')}</span><p><small>Telegram ID{adminUser.username ? ` · @${adminUser.username}` : ''}</small><strong>{adminUser.display_name || 'Новый пользователь'}</strong><small>{adminUser.found ? adminUser.subscription ? `${adminUser.subscription.plan_name} · до ${formatDate(adminUser.subscription.expires_at)}` : 'Профиль найден, подписки нет' : 'Профиль будет создан при выдаче'}</small></p><b>{adminUser.remnawave_linked ? 'Связан' : adminUser.found ? 'Без VPN' : 'Новый'}</b></div>}
             </section>
             <section className="admin-preview-panel admin-preview-form">
               <h3>Параметры подписки</h3>
-              <label><span>Тариф</span><select defaultValue={sortedPlans[0]?.id ?? ''}>{sortedPlans.length ? sortedPlans.map((plan) => <option value={plan.id} key={plan.id}>{plan.name} · {formatMoney(plan.price_minor, plan.currency)}</option>) : <option value="">Rovyn Месяц · 105 ₽</option>}</select></label>
-              <label><span>Устройства</span><select defaultValue="5"><option value="5">До 5 устройств</option><option value="10">До 10 устройств</option></select></label>
-              <label><span>Начало</span><input type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
-              <label><span>Комментарий</span><input defaultValue="Ручная выдача" /></label>
-              <div className="admin-preview-total"><span>Сумма ручной выдачи</span><strong>{sortedPlans[0] ? formatMoney(sortedPlans[0].price_minor, sortedPlans[0].currency) : '105 ₽'}</strong></div>
-              <button className="admin-preview-submit" type="button" aria-disabled="true">Создать и выдать доступ <Icon name="arrow" /></button>
+              <label><span>Тариф</span><select value={adminPlanId} onChange={(event) => setAdminPlanId(event.target.value)}>{sortedPlans.map((plan) => <option value={plan.id} key={plan.id}>{plan.name} · {formatMoney(plan.price_minor, plan.currency)}</option>)}</select></label>
+              <label><span>Устройства</span><select value={adminDeviceLimit} onChange={(event) => setAdminDeviceLimit(event.target.value)}><option value="5">До 5 устройств</option><option value="10">До 10 устройств</option></select></label>
+              <label><span>Начало</span><input type="date" max={new Date().toISOString().slice(0, 10)} value={adminStartsOn} onChange={(event) => setAdminStartsOn(event.target.value)} /></label>
+              <label><span>Комментарий</span><input value={adminComment} maxLength={240} onChange={(event) => setAdminComment(event.target.value)} /></label>
+              <div className="admin-preview-total"><span>Сумма ручной выдачи</span><strong>{adminPlan ? formatMoney(adminPlan.price_minor, adminPlan.currency) : '—'}</strong></div>
+              {adminError && <p className="admin-preview-message is-error" role="alert">{adminError}</p>}
+              {adminResult && <p className="admin-preview-message is-success">Доступ выдан до {formatDate(adminResult.expires_at)}{adminResult.subscription_url ? ' · ссылка создана' : ''}</p>}
+              <button className="admin-preview-submit" type="button" disabled={adminBusy || !adminPlanId || !adminTelegramId} onClick={() => void submitAdminGrant()}>{adminBusy ? 'Выполняем…' : 'Создать и выдать доступ'} <Icon name="arrow" /></button>
             </section>
           </div>
         </section>}
@@ -498,9 +587,9 @@ export default function CabinetV2() {
         <NavButton name="home" icon="home" label="Главная" active={view === 'home'} navigate={navigate} />
         <NavButton name="plans" icon="plans" label="Тарифы" active={view === 'plans'} navigate={navigate} />
         <NavButton name="devices" icon="devices" label="Устройства" active={view === 'devices'} navigate={navigate} />
-        {!adminPreview && <NavButton name="support" icon="support" label="Поддержка" active={view === 'support'} navigate={navigate} />}
+        {!isOwner && <NavButton name="support" icon="support" label="Поддержка" active={view === 'support'} navigate={navigate} />}
         <NavButton name="profile" icon="profile" label="Профиль" active={view === 'profile'} navigate={navigate} />
-        {adminPreview && <NavButton name="admin" icon="admin" label="Админка" active={view === 'admin'} navigate={navigate} />}
+        {isOwner && <NavButton name="admin" icon="admin" label="Админка" active={view === 'admin'} navigate={navigate} />}
       </nav>
 
       {paymentPlan && <PaymentModal plan={paymentPlan} payment={payment} busy={paymentBusy} error={paymentError} close={closePayment} closing={modalClosing} submit={startPayment} refocus={modalRef} />}
