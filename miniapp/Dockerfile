@@ -6,8 +6,10 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 ARG VITE_API_URL=http://localhost:8080
 ARG VITE_TELEGRAM_BOT_URL=/cabinet?app=1
+ARG VITE_TELEGRAM_LAUNCH_URL=/cabinet?app=1
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_TELEGRAM_BOT_URL=$VITE_TELEGRAM_BOT_URL
+ENV VITE_TELEGRAM_LAUNCH_URL=$VITE_TELEGRAM_LAUNCH_URL
 RUN pnpm build
 
 FROM public.ecr.aws/docker/library/nginx:1.29-alpine
