@@ -209,21 +209,18 @@ async def grant_access(
                 detail="linked user is missing",
             )
 
-    row = (
-        await db.execute(
-            select(Subscription, VpnAccount)
-            .outerjoin(VpnAccount, VpnAccount.subscription_id == Subscription.id)
-            .where(
-                Subscription.user_id == user.id,
-                Subscription.status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.SUSPENDED]),
-            )
-            .order_by(desc(Subscription.expires_at))
-            .limit(1)
-            .with_for_update()
+    subscription = await db.scalar(
+        select(Subscription)
+        .where(
+            Subscription.user_id == user.id,
+            Subscription.status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.SUSPENDED]),
         )
-    ).first()
+        .order_by(desc(Subscription.expires_at))
+        .limit(1)
+        .with_for_update()
+    )
     vpn_account: VpnAccount | None = None
-    if row is None:
+    if subscription is None:
         subscription = Subscription(
             user_id=user.id,
             plan_id=plan.id,
@@ -238,7 +235,11 @@ async def grant_access(
         db.add(subscription)
         await db.flush()
     else:
-        subscription, vpn_account = row
+        vpn_account = await db.scalar(
+            select(VpnAccount)
+            .where(VpnAccount.subscription_id == subscription.id)
+            .with_for_update()
+        )
         subscription.plan_id = plan.id
         subscription.starts_at = min(subscription.starts_at, starts_at)
         subscription.expires_at = max(subscription.expires_at, starts_at) + timedelta(
