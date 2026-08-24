@@ -2704,3 +2704,167 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   }
   .timeline-row > div { border-radius:999px; }
 }
+
+/* v14 — approved home access concept */
+.access-overview--concept {
+  grid-template-rows:minmax(0,1fr) auto;
+  gap:20px;
+}
+.access-overview--concept .access-overview__shade {
+  background:
+    radial-gradient(circle at 78% 29%,rgba(72,196,176,.2),transparent 31%),
+    linear-gradient(90deg,rgba(2,15,14,.96) 0 34%,rgba(3,22,19,.64) 66%,rgba(3,24,21,.24)),
+    linear-gradient(0deg,rgba(2,17,15,.92) 0 25%,transparent 66%);
+}
+.access-overview--concept .access-overview__main {
+  grid-template-columns:minmax(0,1fr) clamp(150px,18vw,210px);
+}
+.access-overview--concept .access-overview__copy .kicker {
+  margin:clamp(34px,4vw,58px) 0 13px;
+  color:#c6d39a;
+}
+.access-overview--concept .access-overview__copy h1 {
+  max-width:590px;
+  font-size:clamp(54px,5.35vw,84px);
+}
+.access-overview__lead {
+  max-width:430px;
+  margin:22px 0 0;
+  color:#a5b8b3;
+  font-size:12px;
+  line-height:1.65;
+}
+.access-overview--concept .access-overview__signal {
+  align-self:center;
+}
+.access-overview__plan {
+  position:relative;
+  min-height:196px;
+  overflow:hidden;
+  padding:22px 22px 78px;
+  border:1px solid rgba(194,225,214,.13);
+  border-radius:28px;
+  background:rgba(3,23,20,.79);
+  backdrop-filter:blur(22px);
+}
+.access-overview__plan::after {
+  content:"";
+  position:absolute;
+  right:-48px;
+  bottom:-66px;
+  width:210px;
+  height:210px;
+  border:1px solid rgba(198,211,154,.22);
+  border-radius:50%;
+  box-shadow:0 0 0 28px rgba(198,211,154,.045),0 0 0 57px rgba(198,211,154,.025);
+}
+.access-overview__plan > p {
+  position:relative;
+  z-index:1;
+  margin:0;
+  color:#849991;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.access-overview__plan > div {
+  position:relative;
+  z-index:1;
+  display:flex;
+  max-width:520px;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:22px;
+  margin-top:14px;
+}
+.access-overview__plan strong {
+  max-width:360px;
+  font-size:clamp(26px,3vw,42px);
+  line-height:.96;
+  letter-spacing:-.055em;
+}
+.access-overview__plan > div > span {
+  color:#c6d39a;
+  font-size:13px;
+  font-weight:800;
+}
+.access-overview__plan > small {
+  position:relative;
+  z-index:1;
+  display:block;
+  margin-top:12px;
+  color:#879a93;
+  font-size:10px;
+}
+.access-overview__plan-action {
+  position:absolute;
+  z-index:2;
+  right:20px;
+  bottom:18px;
+  display:flex;
+  min-height:48px;
+  align-items:center;
+  gap:13px;
+  padding:0 18px;
+  border:0;
+  border-radius:999px;
+  color:#0a1e19;
+  background:#eff3ec;
+  font-size:10px;
+  font-weight:850;
+  cursor:pointer;
+  transition:transform .3s var(--ease),background .2s ease;
+}
+.access-overview__plan-action:hover { background:#fff; transform:translateY(-2px); }
+.access-overview__plan-action svg { width:16px; }
+
+@media (max-width:640px) {
+  .access-overview--concept {
+    min-height:clamp(590px,calc(100dvh - 84px),690px);
+    gap:12px;
+    padding:18px 14px 14px;
+  }
+  .access-overview--concept .access-overview__shade {
+    background:
+      linear-gradient(180deg,rgba(2,15,14,.96) 0 47%,rgba(3,23,20,.5) 75%,rgba(2,17,15,.92)),
+      radial-gradient(circle at 76% 59%,rgba(30,151,139,.25),transparent 37%);
+  }
+  .access-overview--concept .access-overview__main {
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto minmax(94px,1fr);
+  }
+  .access-overview--concept .access-overview__copy { padding:0 8px; }
+  .access-overview--concept .access-overview__copy .kicker { margin:26px 0 10px; }
+  .access-overview--concept .access-overview__copy h1 {
+    max-width:330px;
+    font-size:clamp(43px,12.3vw,56px);
+    line-height:.9;
+  }
+  .access-overview__lead {
+    max-width:305px;
+    margin-top:17px;
+    font-size:clamp(10px,2.85vw,12px);
+    line-height:1.55;
+  }
+  .access-overview--concept .access-overview__signal {
+    width:clamp(98px,28vw,120px);
+    align-self:center;
+    justify-self:end;
+    margin:0 8px 0 0;
+  }
+  .access-overview__plan {
+    min-height:218px;
+    padding:20px 18px 88px;
+    border-radius:27px;
+  }
+  .access-overview__plan > div { max-width:100%; }
+  .access-overview__plan strong { max-width:210px; font-size:clamp(25px,7.4vw,32px); }
+  .access-overview__plan-action {
+    right:16px;
+    bottom:12px;
+    min-height:50px;
+    padding:0 18px;
+    font-size:10px;
+  }
+}

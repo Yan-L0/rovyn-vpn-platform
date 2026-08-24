@@ -348,26 +348,22 @@ export default function CabinetV2() {
 
         <section className={`screen ${view === 'home' ? 'is-visible' : ''}`}>
           <div className="home-grid">
-            <article className="access-overview">
+            <article className={`access-overview access-overview--concept ${active ? 'is-active' : 'is-inactive'}`}>
               <img className="access-overview__image" src="/assets/network-terrain.png" alt="" />
               <div className="access-overview__shade" />
               <div className="access-overview__main">
                 <div className="access-overview__copy">
-                  <div className="access-overview__state">
-                    <span className={`status-dot ${active ? '' : 'is-empty'}`}>{active ? 'Подписка активна' : 'Подписка не активна'}</span>
-                    <span>{active ? `до ${formatDate(access!.expires_at)}` : 'Списание не настроено'}</span>
-                  </div>
-                  <p className="kicker">Ваш доступ к NOVA</p>
-                  <h1>{active ? <>{access!.plan_name}<br /><span>всё работает.</span></> : <>Доступ пока<br /><span>не подключён.</span></>}</h1>
-                  <p>{active ? 'Персональная ссылка готова для Happ и v2RayTun. Управляйте устройствами в кабинете.' : 'Выберите период. Ссылка для Happ и v2RayTun появится сразу после оплаты.'}</p>
-                  <button className={`access-overview__action ${active ? '' : 'is-purchase'}`} onClick={() => active ? void copyAccess() : navigate('plans')}>{active ? 'Скопировать ссылку' : 'Выбрать тариф'} <Icon name="arrow" /></button>
+                  <p className="kicker">Ваш доступ</p>
+                  <h1>Интернет без<br /><span>лишнего.</span></h1>
+                  <p className="access-overview__lead">{active ? 'Подписка защищает все ваши устройства. Ссылка уже готова для подключения.' : 'Выберите тариф — личная ссылка для Happ и v2RayTun появится сразу после оплаты.'}</p>
                 </div>
-                <div className="access-overview__signal" aria-hidden="true"><div className="access-overview__orbit"><i /><i /><i /><span>N</span></div><p><b>01</b><span>Персональный<br />маршрут</span></p></div>
+                <div className="access-overview__signal" aria-hidden="true"><div className="access-overview__orbit"><i /><i /><i /><span>R</span></div></div>
               </div>
-              <div className="access-overview__facts">
-                <div><small>Текущий тариф</small><strong>{active ? access!.plan_name : 'Не подключён'}</strong><span>{active ? `${days} дней до окончания` : 'нет активной подписки'}</span></div>
-                <div><small>Включено</small><strong>{active ? `${formatTrafficLimit(access!.usage.traffic_limit_bytes)} · до ${limit} устройств` : 'Безлимит · до 5 устройств'}</strong></div>
-                <div className="access-overview__apps"><small>Приложения</small><strong>Happ · v2RayTun</strong><span>одна ссылка для подключения</span></div>
+              <div className="access-overview__plan">
+                <p>{active ? 'Подписка активна' : 'Готово к подключению'}</p>
+                <div><strong>{active ? access!.plan_name : 'Выберите свой ритм.'}</strong><span>{active ? days : '01'}</span></div>
+                <small>{active ? `До ${formatDate(access!.expires_at)} · ${formatTrafficLimit(access!.usage.traffic_limit_bytes)}` : 'До 5 устройств · безлимитный трафик'}</small>
+                <button className="access-overview__plan-action" onClick={() => active ? void copyAccess() : navigate('plans')}>{active ? 'Открыть подключение' : 'Выбрать тариф'} <Icon name="arrow" /></button>
               </div>
             </article>
 
