@@ -20,6 +20,26 @@
 
 * { box-sizing: border-box; }
 html, body { min-height: 100%; margin: 0; background: #0b302d; }
+/* Keep the animated canvas behind the app during iOS/Telegram overscroll. */
+body {
+  position: relative;
+  background:
+    radial-gradient(ellipse 80% 58% at 8% 8%, rgba(53, 173, 154, .36), transparent 70%),
+    radial-gradient(ellipse 75% 62% at 94% 92%, rgba(26, 125, 108, .34), transparent 72%),
+    linear-gradient(135deg, #1d8e85 0%, #092d2a 34%, #07201f 68%, #188f86 100%);
+}
+body::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: -28%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 28%, rgba(94, 235, 220, .36) 0 8%, rgba(44, 183, 171, .16) 18%, transparent 36%),
+    radial-gradient(circle at 83% 22%, rgba(101, 230, 218, .32) 0 9%, rgba(34, 168, 157, .14) 22%, transparent 40%),
+    radial-gradient(circle at 48% 86%, rgba(53, 220, 203, .28) 0 10%, rgba(26, 159, 148, .13) 24%, transparent 43%);
+  animation: ambient-drift 18s var(--ease) infinite alternate;
+}
 html {
   scrollbar-width: thin;
   scrollbar-color: rgba(116, 222, 209, .6) transparent;
