@@ -61,8 +61,13 @@ const supportedViews = new Set<View>([
   'dashboard', 'plans', 'connect', 'devices', 'referral', 'analytics', 'wallet', 'support', 'chat', 'legal',
 ])
 
-const productUrl = (import.meta.env.VITE_TELEGRAM_BOT_URL as string | undefined) ?? '/cabinet?app=1'
-const cabinetUrl = '/cabinet?login=1'
+// Outside Telegram, use the official Mini App deep-link so Telegram opens the
+// cabinet in its fullscreen Web App surface. Inside Telegram, keep navigation
+// on the HTTPS app URL to avoid leaving the current Mini App session.
+const appUrl = (import.meta.env.VITE_TELEGRAM_BOT_URL as string | undefined) ?? '/cabinet?app=1'
+const launchUrl = (import.meta.env.VITE_TELEGRAM_LAUNCH_URL as string | undefined) ?? appUrl
+const productUrl = launchUrl
+const cabinetUrl = launchUrl
 
 function initialView(): View {
   const value = window.location.hash.replace('#', '') as View

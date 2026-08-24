@@ -92,6 +92,7 @@ services:
       args:
         VITE_API_URL: https://bot.vpn.example
         VITE_TELEGRAM_BOT_URL: ${MINIAPP_TELEGRAM_URL:-/cabinet?app=1}
+        VITE_TELEGRAM_LAUNCH_URL: ${TELEGRAM_MINIAPP_LAUNCH_URL:-/cabinet?app=1}
     ports:
       - "127.0.0.1:5173:8080"
     depends_on:
