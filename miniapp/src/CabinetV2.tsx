@@ -220,15 +220,9 @@ export default function CabinetV2() {
   }, [])
 
   useEffect(() => {
-    const stylesheet = document.createElement('link')
-    stylesheet.rel = 'stylesheet'
-    stylesheet.href = '/cabinet-v2.css?v=15'
-    stylesheet.dataset.cabinetV2 = 'true'
-    document.head.append(stylesheet)
     document.body.classList.add('biorg-cabinet')
     window.Telegram?.WebApp.disableVerticalSwipes?.()
     return () => {
-      stylesheet.remove()
       document.body.classList.remove('biorg-cabinet', 'modal-open')
       window.Telegram?.WebApp.enableVerticalSwipes?.()
     }
@@ -310,6 +304,7 @@ export default function CabinetV2() {
     const starts = new WeakMap<HTMLElement, number>()
     const down = (event: PointerEvent) => {
       if (event.pointerType !== 'touch') return
+      event.preventDefault()
       const grabber = event.currentTarget as HTMLElement
       starts.set(grabber, event.clientY)
       grabber.setPointerCapture(event.pointerId)
@@ -317,6 +312,7 @@ export default function CabinetV2() {
     }
     const move = (event: PointerEvent) => {
       if (event.pointerType !== 'touch') return
+      event.preventDefault()
       const grabber = event.currentTarget as HTMLElement
       const start = starts.get(grabber)
       if (start == null) return
@@ -344,8 +340,8 @@ export default function CabinetV2() {
       grabber.parentElement?.style.setProperty('--sheet-drag-y', '0px')
     }
     grabbers.forEach((grabber) => {
-      grabber.addEventListener('pointerdown', down)
-      grabber.addEventListener('pointermove', move)
+      grabber.addEventListener('pointerdown', down, { passive: false })
+      grabber.addEventListener('pointermove', move, { passive: false })
       grabber.addEventListener('pointerup', up)
       grabber.addEventListener('pointercancel', cancel)
     })
@@ -479,7 +475,7 @@ export default function CabinetV2() {
   return (
     <>
       <SvgSprite />
-      <main className="shell">
+      <main className={`shell ${embedded ? 'telegram-embedded' : 'browser-embedded'}`}>
         <header className="chrome">
           <button className="brand" onClick={() => navigate('home')} aria-label="NOVA"><i /><span>NOVA</span></button>
           <p className="section-label">Личный кабинет</p>

@@ -11,6 +11,12 @@
       if (location.pathname.startsWith('/cabinet')) {
         document.documentElement.classList.add('cabinet-boot')
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b302d')
+        const cabinetStyles = document.createElement('link')
+        cabinetStyles.rel = 'stylesheet'
+        cabinetStyles.href = '/cabinet-v2.css?v=20'
+        cabinetStyles.onload = () => document.documentElement.classList.add('cabinet-styles-ready')
+        cabinetStyles.onerror = () => document.documentElement.classList.add('cabinet-styles-ready')
+        document.head.append(cabinetStyles)
       }
     </script>
     <style>
@@ -24,7 +30,14 @@
           radial-gradient(ellipse 70% 52% at 92% 94%, rgba(45, 161, 143, .28), transparent 74%),
           linear-gradient(145deg, #1b756d 0%, #0b3833 38%, #061f1d 70%, #12655e 100%);
       }
-      html.cabinet-boot body { min-width: 320px; min-height: 100vh; min-height: 100svh; }
+      html.cabinet-boot body { min-width: 320px; min-height: 100vh; min-height: 100svh; opacity: 0; }
+      html.cabinet-boot.cabinet-styles-ready body {
+        opacity: 1;
+        transition: opacity 280ms cubic-bezier(.22, 1, .36, 1);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html.cabinet-boot.cabinet-styles-ready body { transition: none; }
+      }
     </style>
   </head>
   <body>

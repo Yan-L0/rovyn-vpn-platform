@@ -3398,3 +3398,34 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   .admin-preview-user { grid-template-columns:auto 1fr; }
   .admin-preview-user b { grid-column:2; justify-self:start; }
 }
+
+/* v20 — stable mobile sheets and a distinct browser-mobile header. */
+@media (max-width:640px) {
+  body.modal-open {
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:none;
+  }
+  .payment-layer,.action-layer {
+    overscroll-behavior:none;
+    touch-action:none;
+  }
+  .modal-surface {
+    overflow:hidden;
+    overscroll-behavior:none;
+    touch-action:none;
+  }
+  .modal-grabber { touch-action:none; }
+
+  .shell.browser-embedded .chrome {
+    height:64px;
+    padding-top:max(12px,env(safe-area-inset-top,0px));
+  }
+  .shell.browser-embedded .chrome .section-label {
+    position:static;
+    top:auto;
+    display:block;
+    justify-self:center;
+    color:rgba(235,246,241,.76);
+  }
+}
