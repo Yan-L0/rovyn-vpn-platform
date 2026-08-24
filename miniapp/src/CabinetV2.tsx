@@ -262,6 +262,48 @@ export default function CabinetV2() {
     if (open) window.setTimeout(() => modalRef.current?.focus(), 30)
   }, [modal, paymentPlan])
 
+  useEffect(() => {
+    if (!modal && !paymentPlan) return
+    const grabbers = Array.from(document.querySelectorAll<HTMLElement>('.modal-grabber'))
+    const starts = new WeakMap<HTMLElement, number>()
+    const down = (event: PointerEvent) => {
+      const grabber = event.currentTarget as HTMLElement
+      starts.set(grabber, event.clientY)
+      grabber.setPointerCapture(event.pointerId)
+      grabber.parentElement?.style.setProperty('transition', 'none')
+    }
+    const move = (event: PointerEvent) => {
+      const grabber = event.currentTarget as HTMLElement
+      const start = starts.get(grabber)
+      if (start == null) return
+      const distance = Math.max(0, event.clientY - start)
+      grabber.parentElement?.style.setProperty('--sheet-drag-y', `${distance}px`)
+    }
+    const up = (event: PointerEvent) => {
+      const grabber = event.currentTarget as HTMLElement
+      const start = starts.get(grabber)
+      if (start == null) return
+      const distance = event.clientY - start
+      starts.delete(grabber)
+      grabber.releasePointerCapture(event.pointerId)
+      grabber.parentElement?.style.removeProperty('transition')
+      grabber.parentElement?.style.setProperty('--sheet-drag-y', '0px')
+      if (distance > 86) { if (paymentPlan) closePayment(); else closeAction() }
+    }
+    grabbers.forEach((grabber) => {
+      grabber.addEventListener('pointerdown', down)
+      grabber.addEventListener('pointermove', move)
+      grabber.addEventListener('pointerup', up)
+      grabber.addEventListener('pointercancel', up)
+    })
+    return () => grabbers.forEach((grabber) => {
+      grabber.removeEventListener('pointerdown', down)
+      grabber.removeEventListener('pointermove', move)
+      grabber.removeEventListener('pointerup', up)
+      grabber.removeEventListener('pointercancel', up)
+    })
+  }, [modal, paymentPlan])
+
   function navigate(next: CabinetView) {
     setView(next)
     window.location.hash = next

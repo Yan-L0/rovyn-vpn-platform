@@ -3218,3 +3218,41 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   .home-access-intro__signal { top:88px; }
   .home-access-plan { min-height:204px; }
 }
+
+/* v18 — minimal sheets with one intentional close gesture */
+.modal-toolbar { display:none; }
+.modal-close { display:none !important; }
+.modal-grabber {
+  display:flex;
+  width:100%;
+  min-height:30px;
+  align-items:flex-start;
+  justify-content:center;
+  margin:-6px 0 8px;
+  padding-top:3px;
+  touch-action:none;
+  cursor:grab;
+}
+.modal-grabber:active { cursor:grabbing; }
+.payment-sheet h2 { margin-top:8px; }
+.payment-layer.is-open .modal-surface,
+.action-layer.is-open .modal-surface {
+  animation:sheet-rise 420ms var(--ease) both;
+}
+@keyframes sheet-rise {
+  from { opacity:0; transform:translateY(34px) scale(.985); }
+  to { opacity:1; transform:translateY(var(--sheet-drag-y)) scale(1); }
+}
+.payment-layer.is-closing .modal-surface,
+.action-layer.is-closing .modal-surface {
+  animation:sheet-drop 280ms var(--ease) both;
+}
+@keyframes sheet-drop {
+  to { opacity:0; transform:translateY(110%) scale(.98); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .payment-layer.is-open .modal-surface,
+  .action-layer.is-open .modal-surface,
+  .payment-layer.is-closing .modal-surface,
+  .action-layer.is-closing .modal-surface { animation:none; }
+}
