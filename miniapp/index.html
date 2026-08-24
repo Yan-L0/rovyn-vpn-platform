@@ -13,7 +13,7 @@
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b302d')
         const cabinetStyles = document.createElement('link')
         cabinetStyles.rel = 'stylesheet'
-        cabinetStyles.href = '/cabinet-v2.css?v=20'
+        cabinetStyles.href = '/cabinet-v2.css?v=21'
         cabinetStyles.onload = () => document.documentElement.classList.add('cabinet-styles-ready')
         cabinetStyles.onerror = () => document.documentElement.classList.add('cabinet-styles-ready')
         document.head.append(cabinetStyles)
