@@ -768,8 +768,13 @@ body.cabinet-body {
   .purchase-period > strong { font-size: 26px; }
 }
 
-/* Desktop full-access cabinet, based on the supplied VPNUS reference */
-body.cabinet-body { background: #000; }
+/* The first cabinet frame must match the animated NOVA canvas. */
+body.cabinet-body {
+  background:
+    radial-gradient(ellipse 72% 48% at 10% 7%, rgba(76, 205, 187, .34), transparent 72%),
+    radial-gradient(ellipse 70% 52% at 92% 94%, rgba(45, 161, 143, .28), transparent 74%),
+    linear-gradient(145deg, #1b756d 0%, #0b3833 38%, #061f1d 70%, #12655e 100%);
+}
 
 .app-shell.reference-shell,
 .app-shell.reference-shell.browser-mode,

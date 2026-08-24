@@ -7,6 +7,25 @@
     <meta name="description" content="NOVA VPN — единая подписка для Happ и v2RayTun с управлением в Telegram." />
     <meta name="theme-color" content="#050706" />
     <title>NOVA VPN — интернет без лишних ограничений</title>
+    <script>
+      if (location.pathname.startsWith('/cabinet')) {
+        document.documentElement.classList.add('cabinet-boot')
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b302d')
+      }
+    </script>
+    <style>
+      html.cabinet-boot,
+      html.cabinet-boot body,
+      html.cabinet-boot #root {
+        min-height: 100%;
+        margin: 0;
+        background:
+          radial-gradient(ellipse 72% 48% at 10% 7%, rgba(76, 205, 187, .34), transparent 72%),
+          radial-gradient(ellipse 70% 52% at 92% 94%, rgba(45, 161, 143, .28), transparent 74%),
+          linear-gradient(145deg, #1b756d 0%, #0b3833 38%, #061f1d 70%, #12655e 100%);
+      }
+      html.cabinet-boot body { min-width: 320px; min-height: 100vh; min-height: 100svh; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

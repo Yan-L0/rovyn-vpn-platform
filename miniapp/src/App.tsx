@@ -125,7 +125,7 @@ export default function App() {
   useEffect(() => {
     document.body.classList.toggle('cabinet-body', miniAppMode)
     const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-    themeColor?.setAttribute('content', '#050706')
+    themeColor?.setAttribute('content', miniAppMode ? '#0b302d' : '#050706')
     return () => {
       document.body.classList.remove('cabinet-body')
       themeColor?.setAttribute('content', '#050706')
