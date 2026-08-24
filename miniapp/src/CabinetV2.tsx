@@ -17,7 +17,7 @@ import {
   type YearlyUsage,
 } from './api'
 
-type CabinetView = 'home' | 'plans' | 'devices' | 'support' | 'profile'
+type CabinetView = 'home' | 'plans' | 'devices' | 'support' | 'profile' | 'admin'
 type ModalState = null | {
   kicker: string
   title: string
@@ -26,7 +26,7 @@ type ModalState = null | {
   onAction?: () => void | Promise<void>
 }
 
-const views = new Set<CabinetView>(['home', 'plans', 'devices', 'support', 'profile'])
+const views = new Set<CabinetView>(['home', 'plans', 'devices', 'support', 'profile', 'admin'])
 const monthNames = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь']
 const monthLetters = ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О', 'Н', 'Д']
 const visualPreview = import.meta.env.VITE_CABINET_PREVIEW === 'true'
@@ -62,6 +62,7 @@ function Icon({ name }: { name: string }) {
 
 function initialView(): CabinetView {
   const hash = window.location.hash.replace('#', '') as CabinetView
+  if (hash === 'admin' && new URLSearchParams(window.location.search).get('admin') !== '1') return 'home'
   return views.has(hash) ? hash : 'home'
 }
 
@@ -158,6 +159,7 @@ function SvgSprite() {
       <symbol id="i-devices" viewBox="0 0 24 24"><rect x="2.8" y="4" width="18.4" height="12.7" rx="2.7" /><path d="M8 20h8M12 16.7V20" /></symbol>
       <symbol id="i-support" viewBox="0 0 24 24"><path d="M4.2 13.2V11a7.8 7.8 0 0 1 15.6 0v2.2" /><path d="M6.7 17.4H5.5a2.2 2.2 0 0 1-2.2-2.2v-1.4a2.2 2.2 0 0 1 2.2-2.2h1.2zm10.6 0h1.2a2.2 2.2 0 0 0 2.2-2.2v-1.4a2.2 2.2 0 0 0-2.2-2.2h-1.2z" /></symbol>
       <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4.5 20.2c.8-4 3.3-6 7.5-6s6.7 2 7.5 6" /></symbol>
+      <symbol id="i-admin" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.8 2.7 8.1 7 10 4.3-1.9 7-5.2 7-10V6z" /><path d="M9.5 11.5 11 13l3.5-4" /></symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5" /></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
       <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></symbol>
@@ -173,6 +175,7 @@ function SvgSprite() {
 
 export default function CabinetV2() {
   const embedded = embeddedInTelegram()
+  const adminPreview = new URLSearchParams(window.location.search).get('admin') === '1'
   const browserBypass = new URLSearchParams(window.location.search).get('app') === '1'
   const [view, setView] = useState<CabinetView>(initialView)
   const [me, setMe] = useState<Me | null>(null)
@@ -469,14 +472,35 @@ export default function CabinetV2() {
             <article className="settings-card"><p className="kicker">Настройки</p><button onClick={() => setNotifications((value) => !value)}><span>Уведомления</span><small>{notifications ? 'Включены' : 'Выключены'}</small></button><button onClick={() => setModal({ kicker: 'Язык', title: 'Русский.', copy: 'Другие языки будут доступны в следующих версиях.' })}><span>Язык</span><small>Русский</small></button><button onClick={() => setModal({ kicker: 'Сессия', title: 'Закрыть кабинет?', copy: 'Для завершения сессии закройте Mini App или вкладку браузера.', action: 'Закрыть', onAction: () => window.Telegram?.WebApp.close?.() })}><span>Выйти</span><Icon name="arrow" /></button></article>
           </div>
         </section>
+
+        {adminPreview && <section className={`screen ${view === 'admin' ? 'is-visible' : ''}`}>
+          <header className="page-title admin-page-title"><p className="kicker">Пользователи</p><h2>Выдать доступ</h2></header>
+          <div className="admin-preview-layout">
+            <section className="admin-preview-panel admin-preview-search">
+              <label><span>Telegram ID</span><input inputMode="numeric" defaultValue="123456789" /></label>
+              <button type="button">Найти</button>
+              <div className="admin-preview-user"><span className="admin-preview-avatar">ИП</span><p><small>Telegram ID · @username</small><strong>Иван Петров</strong><small>Профиль найден в Rovyn</small></p><b>Связан</b></div>
+            </section>
+            <section className="admin-preview-panel admin-preview-form">
+              <h3>Параметры подписки</h3>
+              <label><span>Тариф</span><select defaultValue={sortedPlans[0]?.id ?? ''}>{sortedPlans.length ? sortedPlans.map((plan) => <option value={plan.id} key={plan.id}>{plan.name} · {formatMoney(plan.price_minor, plan.currency)}</option>) : <option value="">Rovyn Месяц · 105 ₽</option>}</select></label>
+              <label><span>Устройства</span><select defaultValue="5"><option value="5">До 5 устройств</option><option value="10">До 10 устройств</option></select></label>
+              <label><span>Начало</span><input type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
+              <label><span>Комментарий</span><input defaultValue="Ручная выдача" /></label>
+              <div className="admin-preview-total"><span>Сумма ручной выдачи</span><strong>{sortedPlans[0] ? formatMoney(sortedPlans[0].price_minor, sortedPlans[0].currency) : '105 ₽'}</strong></div>
+              <button className="admin-preview-submit" type="button" aria-disabled="true">Создать и выдать доступ <Icon name="arrow" /></button>
+            </section>
+          </div>
+        </section>}
       </main>
 
       <nav className="dock" aria-label="Основная навигация">
         <NavButton name="home" icon="home" label="Главная" active={view === 'home'} navigate={navigate} />
         <NavButton name="plans" icon="plans" label="Тарифы" active={view === 'plans'} navigate={navigate} />
         <NavButton name="devices" icon="devices" label="Устройства" active={view === 'devices'} navigate={navigate} />
-        <NavButton name="support" icon="support" label="Поддержка" active={view === 'support'} navigate={navigate} />
+        {!adminPreview && <NavButton name="support" icon="support" label="Поддержка" active={view === 'support'} navigate={navigate} />}
         <NavButton name="profile" icon="profile" label="Профиль" active={view === 'profile'} navigate={navigate} />
+        {adminPreview && <NavButton name="admin" icon="admin" label="Админка" active={view === 'admin'} navigate={navigate} />}
       </nav>
 
       {paymentPlan && <PaymentModal plan={paymentPlan} payment={payment} busy={paymentBusy} error={paymentError} close={closePayment} closing={modalClosing} submit={startPayment} refocus={modalRef} />}
