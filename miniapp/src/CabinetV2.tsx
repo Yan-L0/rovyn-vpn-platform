@@ -348,24 +348,22 @@ export default function CabinetV2() {
 
         <section className={`screen ${view === 'home' ? 'is-visible' : ''}`}>
           <div className="home-grid">
-            <article className={`access-overview access-overview--concept ${active ? 'is-active' : 'is-inactive'}`}>
-              <img className="access-overview__image" src="/assets/network-terrain.png" alt="" />
-              <div className="access-overview__shade" />
-              <div className="access-overview__main">
-                <div className="access-overview__copy">
+            <div className={`home-primary ${active ? 'is-active' : 'is-inactive'}`}>
+              <section className="home-access-intro">
+                <div className="home-access-intro__copy">
                   <p className="kicker">Ваш доступ</p>
                   <h1>Интернет без<br /><span>лишнего.</span></h1>
-                  <p className="access-overview__lead">{active ? 'Подписка защищает все ваши устройства. Ссылка уже готова для подключения.' : 'Выберите тариф — личная ссылка для Happ и v2RayTun появится сразу после оплаты.'}</p>
+                  <p>{active ? 'Подписка защищает все ваши устройства. Ссылка уже готова для подключения.' : 'Выберите тариф — личная ссылка для Happ и v2RayTun появится сразу после оплаты.'}</p>
                 </div>
-                <div className="access-overview__signal" aria-hidden="true"><div className="access-overview__orbit"><i /><i /><i /><span>R</span></div></div>
-              </div>
-              <div className="access-overview__plan">
+                <div className="home-access-intro__signal" aria-hidden="true"><div className="home-access-intro__orbit"><i /><i /><i /><span>R</span></div></div>
+              </section>
+              <article className="home-access-plan">
                 <p>{active ? 'Подписка активна' : 'Готово к подключению'}</p>
                 <div><strong>{active ? access!.plan_name : 'Выберите свой ритм.'}</strong><span>{active ? days : '01'}</span></div>
                 <small>{active ? `До ${formatDate(access!.expires_at)} · ${formatTrafficLimit(access!.usage.traffic_limit_bytes)}` : 'До 5 устройств · безлимитный трафик'}</small>
-                <button className="access-overview__plan-action" onClick={() => active ? void copyAccess() : navigate('plans')}>{active ? 'Открыть подключение' : 'Выбрать тариф'} <Icon name="arrow" /></button>
-              </div>
-            </article>
+                <button className="home-access-plan__action" onClick={() => active ? void copyAccess() : navigate('plans')}>{active ? 'Открыть подключение' : 'Выбрать тариф'} <Icon name="arrow" /></button>
+              </article>
+            </div>
 
             <aside className="home-aside">
               <article className="subscription-panel">
