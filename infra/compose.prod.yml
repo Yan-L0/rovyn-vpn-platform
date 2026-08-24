@@ -3,8 +3,8 @@ name: vpn-platform
 x-app-environment: &app-environment
   APP_ENV: production
   APP_NAME: VPN Platform
-  API_PUBLIC_URL: https://bot.vpn.example
-  MINIAPP_PUBLIC_URL: https://bot.vpn.example
+  API_PUBLIC_URL: ${API_PUBLIC_URL}
+  MINIAPP_PUBLIC_URL: ${MINIAPP_PUBLIC_URL}
   DATABASE_URL: postgresql+asyncpg://vpn:${POSTGRES_PASSWORD}@postgres:5432/vpn
   REDIS_URL: redis://redis:6379/0
   TELEGRAM_AUTH_DEV_BYPASS: "false"
@@ -90,7 +90,7 @@ services:
     build:
       context: ../miniapp
       args:
-        VITE_API_URL: https://bot.vpn.example
+        VITE_API_URL: ${API_PUBLIC_URL}
         VITE_TELEGRAM_BOT_URL: ${MINIAPP_TELEGRAM_URL:-/cabinet?app=1}
         VITE_TELEGRAM_LAUNCH_URL: ${TELEGRAM_MINIAPP_LAUNCH_URL:-/cabinet?app=1}
     ports:
@@ -109,7 +109,7 @@ services:
         required: true
     environment:
       APP_ENV: production
-      MINIAPP_PUBLIC_URL: https://bot.vpn.example
+      MINIAPP_PUBLIC_URL: ${MINIAPP_PUBLIC_URL}
     build:
       context: ../bot
     depends_on:
