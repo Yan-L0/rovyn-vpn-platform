@@ -453,7 +453,7 @@ export default function CabinetV2() {
     }
   }
 
-  if (loading) return <main className="cabinet-state"><span className="cabinet-loader" /><strong>NOVA</strong><p>Обновляем личный кабинет…</p></main>
+  if (loading) return <main className="cabinet-state" aria-live="polite"><div className="cabinet-loader" aria-hidden="true"><i /><i /><i /><span>R</span></div><strong>Личный кабинет</strong><p>Синхронизируем доступ…</p><small>Проверяем подписку и устройства</small></main>
   if (error || !me) return <main className="cabinet-state"><strong>Вход не выполнен</strong><p>{error || 'Откройте кабинет из официального Telegram-бота.'}</p></main>
 
   const active = Boolean(access && access.status !== 'expired')
