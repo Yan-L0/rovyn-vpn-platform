@@ -3435,6 +3435,17 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
   opacity:.7;
   animation:device-slot-in 420ms var(--ease) both;
 }
+.timeline-row:not(.empty) {
+  animation:device-row-in 460ms var(--ease) both;
+}
+.timeline-row:nth-child(2) { animation-delay:55ms; }
+.timeline-row:nth-child(3) { animation-delay:110ms; }
+.timeline-row:nth-child(4) { animation-delay:165ms; }
+.timeline-row:nth-child(5) { animation-delay:220ms; }
+@keyframes device-row-in {
+  from { opacity:0; transform:translateY(10px); }
+  to { opacity:1; transform:none; }
+}
 @keyframes device-slot-in {
   from { opacity:0; transform:translateY(12px); }
   to { opacity:.7; transform:none; }
