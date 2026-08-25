@@ -11,12 +11,16 @@
       if (location.pathname.startsWith('/cabinet')) {
         document.documentElement.classList.add('cabinet-boot')
         document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b302d')
-        const cabinetStyles = document.createElement('link')
-        cabinetStyles.rel = 'stylesheet'
-        cabinetStyles.href = '/cabinet-v2.css?v=23'
-        cabinetStyles.onload = () => document.documentElement.classList.add('cabinet-styles-ready')
-        cabinetStyles.onerror = () => document.documentElement.classList.add('cabinet-styles-ready')
-        document.head.append(cabinetStyles)
+        document.addEventListener('DOMContentLoaded', () => {
+          if (document.getElementById('cabinet-styles')) return
+          const cabinetStyles = document.createElement('link')
+          cabinetStyles.id = 'cabinet-styles'
+          cabinetStyles.rel = 'stylesheet'
+          cabinetStyles.href = '/cabinet-v2.css?v=24'
+          cabinetStyles.onload = () => document.documentElement.classList.add('cabinet-styles-ready')
+          cabinetStyles.onerror = () => document.documentElement.classList.add('cabinet-styles-error')
+          document.head.append(cabinetStyles)
+        }, { once: true })
       }
     </script>
     <style>
@@ -34,6 +38,16 @@
       html.cabinet-boot.cabinet-styles-ready body {
         opacity: 1;
         transition: opacity 280ms cubic-bezier(.22, 1, .36, 1);
+      }
+      html.cabinet-boot.cabinet-styles-error::after {
+        content: 'Не удалось загрузить интерфейс';
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        color: rgba(242, 246, 239, .86);
+        font: 600 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
       @media (prefers-reduced-motion: reduce) {
         html.cabinet-boot.cabinet-styles-ready body { transition: none; }
