@@ -3429,3 +3429,63 @@ body.biorg-cabinet { overscroll-behavior-y:none; }
     color:rgba(235,246,241,.76);
   }
 }
+
+/* v21 — one progressive device slot, resilient identities and lighter ambient motion. */
+.timeline-row.empty {
+  opacity:.7;
+  animation:device-slot-in 420ms var(--ease) both;
+}
+@keyframes device-slot-in {
+  from { opacity:0; transform:translateY(12px); }
+  to { opacity:.7; transform:none; }
+}
+.profile-identity-copy {
+  max-width:min(62vw,620px);
+  overflow:hidden;
+}
+.profile-identity-copy h2 {
+  margin:0;
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.profile-identity-copy.is-long h2 { font-size:clamp(48px,6.3vw,82px); }
+.profile-identity-copy.is-very-long h2 { font-size:clamp(36px,4.8vw,64px); line-height:.98; }
+
+/* Keep the overscroll canvas alive while reducing full-page animated layers. */
+body::before,
+body::after {
+  animation:none;
+  will-change:auto;
+}
+.shell::before {
+  animation:ambient-drift 28s var(--ease) infinite alternate;
+}
+.shell::after {
+  animation:light-sweep 24s ease-in-out infinite;
+}
+
+@media (max-width:640px) {
+  .chrome { height:38px; }
+  .chrome .section-label { top:-16px; }
+  .home-grid { margin-top:0; }
+  .home-access-intro { min-height:316px; padding-top:27px; }
+  .home-access-plan { margin-top:0; }
+  .profile-identity-row { width:100%; gap:clamp(14px,4vw,24px); }
+  .profile-identity-copy { max-width:calc(100vw - 174px); }
+  .profile-identity-copy.is-long h2 { font-size:clamp(36px,9vw,52px); }
+  .profile-identity-copy.is-very-long h2 { font-size:clamp(28px,7.5vw,43px); }
+  .modal-grabber {
+    min-height:44px;
+    height:44px;
+    margin-top:-6px;
+    padding-top:7px;
+  }
+  .modal-grabber > i { width:64px; height:6px; border-radius:999px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .timeline-row.empty,
+  .shell::before,
+  .shell::after { animation:none; }
+}

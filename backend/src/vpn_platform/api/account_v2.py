@@ -6,7 +6,7 @@ from typing import Annotated, cast
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from vpn_platform.api.dependencies import (
     AuthenticatedUser,
@@ -29,11 +29,13 @@ from vpn_platform.db.models import (
     Referral,
     ReferralReward,
     Subscription,
+    SubscriptionStatus,
     SupportTicket,
     VpnAccount,
     VpnUsageDaily,
 )
 from vpn_platform.domain.vpn_provider import ProviderError, VPNProvider
+from vpn_platform.providers.remnawave import RemnawaveNotFound
 from vpn_platform.services.usage_sync import store_usage_points
 
 router = APIRouter(prefix="/api/v2", tags=["account-v2"])
@@ -60,7 +62,10 @@ async def _vpn_account(
         await db.execute(
             select(Subscription, VpnAccount)
             .join(VpnAccount, VpnAccount.subscription_id == Subscription.id)
-            .where(Subscription.user_id == user_id)
+            .where(
+                Subscription.user_id == user_id,
+                Subscription.status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.SUSPENDED]),
+            )
             .order_by(Subscription.expires_at.desc())
             .limit(1)
         )
@@ -68,6 +73,13 @@ async def _vpn_account(
     if row is None:
         return None
     return row[0], row[1]
+
+
+async def _expire_local_subscription(db: DatabaseSession, subscription: Subscription) -> None:
+    """Keep the cabinet truthful when an account was removed in Remnawave."""
+    subscription.status = SubscriptionStatus.EXPIRED
+    await db.execute(delete(VpnUsageDaily).where(VpnUsageDaily.user_id == subscription.user_id))
+    await db.commit()
 
 
 @router.get("/subscription/access", response_model=SubscriptionAccessResponse)
@@ -82,7 +94,10 @@ async def subscription_access(
             select(Subscription, Plan, VpnAccount)
             .join(Plan, Plan.id == Subscription.plan_id)
             .join(VpnAccount, VpnAccount.subscription_id == Subscription.id)
-            .where(Subscription.user_id == auth.user.id)
+            .where(
+                Subscription.user_id == auth.user.id,
+                Subscription.status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.SUSPENDED]),
+            )
             .order_by(Subscription.expires_at.desc())
             .limit(1)
         )
@@ -98,6 +113,12 @@ async def subscription_access(
     try:
         provider_user = await provider.get_subscription_info(account.provider_user_id)
         usage = await provider.get_usage(account.provider_user_id)
+    except RemnawaveNotFound as error:
+        await _expire_local_subscription(db, subscription)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VPN subscription not found",
+        ) from error
     except ProviderError as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -142,6 +163,9 @@ async def devices(
     _, account = row
     try:
         items = await _provider(request).get_devices(account.provider_user_id)
+    except RemnawaveNotFound as error:
+        await _expire_local_subscription(db, row[0])
+        return []
     except ProviderError as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -170,11 +194,19 @@ async def yearly_traffic(
     selected_year = year or now.year
     row = await _vpn_account(db, auth.user.id)
     if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="VPN subscription not found",
+        response.headers["Cache-Control"] = "no-store"
+        return YearlyUsageResponse(
+            year=selected_year,
+            current_month=now.month if selected_year == now.year else 12,
+            current_month_used_bytes=0,
+            updated_at=None,
+            source_status="stored",
+            months=[
+                MonthlyUsageResponse(month=index + 1, used_bytes=0, has_data=False)
+                for index in range(12)
+            ],
         )
-    _, account = row
+    subscription, account = row
 
     source_status = "stored"
     if selected_year == now.year:
@@ -187,6 +219,20 @@ async def yearly_traffic(
             await store_usage_points(db, auth.user.id, points)
             await db.commit()
             source_status = "fresh"
+        except RemnawaveNotFound:
+            await _expire_local_subscription(db, subscription)
+            response.headers["Cache-Control"] = "no-store"
+            return YearlyUsageResponse(
+                year=selected_year,
+                current_month=now.month,
+                current_month_used_bytes=0,
+                updated_at=None,
+                source_status="stored",
+                months=[
+                    MonthlyUsageResponse(month=index + 1, used_bytes=0, has_data=False)
+                    for index in range(12)
+                ],
+            )
         except ProviderError:
             source_status = "stale"
 

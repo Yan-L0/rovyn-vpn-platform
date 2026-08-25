@@ -216,7 +216,16 @@ export default function CabinetV2() {
     if (results[1].status === 'fulfilled') setTraffic(results[1].value)
     if (results[2].status === 'fulfilled') setDevices(results[2].value)
     const failed = results.find((result) => result.status === 'rejected')
-    setLiveError(failed?.status === 'rejected' ? failed.reason instanceof Error ? failed.reason.message : 'Не все данные обновились' : null)
+    const subscriptionMissing = failed?.status === 'rejected'
+      && failed.reason instanceof Error
+      && /VPN subscription not found|VPN service did not return subscription data/i.test(failed.reason.message)
+    if (subscriptionMissing) {
+      setAccess(null)
+      setTraffic(null)
+      setDevices([])
+      setMe((current) => current ? { ...current, subscription: null } : current)
+    }
+    setLiveError(subscriptionMissing ? null : failed?.status === 'rejected' ? failed.reason instanceof Error ? failed.reason.message : 'Не все данные обновились' : null)
   }, [])
 
   useEffect(() => {
@@ -469,6 +478,8 @@ export default function CabinetV2() {
   const maxUsage = Math.max(1, ...(traffic?.months.map((month) => month.used_bytes) ?? [1]))
   const displayName = me.user.display_name || 'Пользователь NOVA'
   const telegramPhoto = window.Telegram?.WebApp.initDataUnsafe?.user?.photo_url
+  const profileNameClass = displayName.length > 28 ? 'is-very-long' : displayName.length > 16 ? 'is-long' : ''
+  const availableDeviceSlots = Math.max(0, limit - devices.length)
   const sortedPlans = [...plans].sort((a, b) => planRank(a) - planRank(b))
   const adminPlan = plans.find((plan) => plan.id === adminPlanId) ?? sortedPlans[0]
 
@@ -534,7 +545,7 @@ export default function CabinetV2() {
           <header className="page-title compact"><p className="kicker">Подключения</p><div className="device-title-row"><h2>Устройства</h2><button className="circle-action" onClick={() => setModal(access?.subscription_url ? { kicker: 'Новое устройство', title: 'Добавьте подписку.', copy: 'Скопируйте персональную ссылку и импортируйте её в Happ или v2RayTun.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Новое устройство', title: 'Сначала нужен тариф.', copy: 'После оплаты персональная ссылка появится здесь автоматически.', action: 'Выбрать тариф', onAction: () => { setModal(null); navigate('plans') } })} aria-label="Добавить устройство"><Icon name="plus" /></button></div></header>
           <div className="timeline">
             {devices.map((device, index) => <button className={`timeline-row ${index === 0 ? 'active' : ''}`} key={device.hardware_id} onClick={() => setModal({ kicker: 'Устройство', title: shortDeviceName(device), copy: device.last_seen_at ? `Последняя активность: ${formatDate(device.last_seen_at)}. Можно отвязать устройство от подписки.` : 'Устройство зарегистрировано в Remnawave.', action: 'Удалить устройство', onAction: () => removeDevice(device) })}><span className="timeline-node" /><small>{index === 0 ? 'Сейчас' : device.last_seen_at ? new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(device.last_seen_at)) : 'Недавно'}</small><div><span className="device-art"><Icon name={deviceIcon(device)} /></span><p><strong>{shortDeviceName(device)}</strong><small>{device.platform || 'Платформа не определена'}</small></p>{index === 0 ? <b>Активно</b> : <Icon name="chevron" />}</div></button>)}
-            {Array.from({ length: Math.max(1, limit - devices.length) }, (_, index) => <button className="timeline-row empty" key={`free-${index}`} onClick={() => setModal(access?.subscription_url ? { kicker: 'Свободное место', title: 'Подключите устройство.', copy: 'Скопируйте персональную ссылку и импортируйте её в совместимое приложение.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Подключение', title: 'Нет активного тарифа.', copy: 'Выберите тариф, чтобы получить персональную ссылку.' })}><span className="timeline-node" /><small>Свободно</small><div><span className="device-art"><Icon name="plus" /></span><p><strong>Добавить устройство</strong><small>Доступно ещё {Math.max(0, limit - devices.length)}</small></p><Icon name="chevron" /></div></button>)}
+            {availableDeviceSlots > 0 && <button className="timeline-row empty" key="free-slot" onClick={() => setModal(access?.subscription_url ? { kicker: 'Свободное место', title: 'Подключите устройство.', copy: 'Скопируйте персональную ссылку и импортируйте её в совместимое приложение.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Подключение', title: 'Нет активного тарифа.', copy: 'Выберите тариф, чтобы получить персональную ссылку.' })}><span className="timeline-node" /><small>Свободно</small><div><span className="device-art"><Icon name="plus" /></span><p><strong>Добавить устройство</strong><small>Доступно ещё {availableDeviceSlots}</small></p><Icon name="chevron" /></div></button>}
           </div>
         </section>
 
@@ -555,7 +566,7 @@ export default function CabinetV2() {
             <p className="kicker">Профиль</p>
             <div className="profile-identity-row">
               <div className="profile-orbit"><span>{telegramPhoto ? <img src={telegramPhoto} alt="" /> : initials(displayName)}</span></div>
-              <div className="profile-identity-copy"><h2>{displayName}</h2><small>ID {me.user.telegram_id ?? me.user.id}</small></div>
+              <div className={`profile-identity-copy ${profileNameClass}`}><h2>{displayName}</h2><small>ID {me.user.telegram_id ?? me.user.id}</small></div>
             </div>
           </header>
           <div className="profile-grid">

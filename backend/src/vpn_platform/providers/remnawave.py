@@ -25,6 +25,12 @@ class RemnawaveConflict(ProviderError):
     pass
 
 
+class RemnawaveNotFound(ProviderError):
+    """The local account no longer exists in Remnawave."""
+
+    pass
+
+
 class RemnawaveProvider:
     """Remnawave v2 API adapter based on the inspected v2.8.1 contracts."""
 
@@ -212,6 +218,10 @@ class RemnawaveProvider:
         except httpx.TimeoutException as error:
             raise ProviderError(f"Remnawave request timed out: {method} {path}") from error
         except httpx.HTTPStatusError as error:
+            if error.response.status_code == 404:
+                raise RemnawaveNotFound(
+                    f"Remnawave resource was not found: {method} {path}"
+                ) from error
             if error.response.status_code == 409:
                 raise RemnawaveConflict(f"Remnawave conflict for {method} {path}") from error
             raise ProviderError(
