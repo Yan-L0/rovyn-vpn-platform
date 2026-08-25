@@ -16,11 +16,17 @@ if (cabinetMode) {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', cabinetBootColor)
 
   let cabinetStyles = document.querySelector<HTMLLinkElement>('link[href^="/cabinet-v2.css"]')
-  const revealCabinet = () => document.documentElement.classList.add('cabinet-styles-ready')
+  const revealCabinet = () => {
+    // Vite's shared site stylesheet is emitted after the static head markup.
+    // Moving the preloaded cabinet sheet to the end keeps its scoped UI rules
+    // authoritative without recreating the old unstyled loading flash.
+    if (cabinetStyles?.parentNode === document.head) document.head.append(cabinetStyles)
+    document.documentElement.classList.add('cabinet-styles-ready')
+  }
   if (!cabinetStyles) {
     cabinetStyles = document.createElement('link')
     cabinetStyles.rel = 'stylesheet'
-    cabinetStyles.href = '/cabinet-v2.css?v=21'
+    cabinetStyles.href = '/cabinet-v2.css?v=23'
     cabinetStyles.onload = revealCabinet
     cabinetStyles.onerror = revealCabinet
     document.head.append(cabinetStyles)

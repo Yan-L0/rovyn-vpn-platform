@@ -443,12 +443,21 @@ export default function CabinetV2() {
 
   function closePayment() {
     setModalClosing(true)
-    window.setTimeout(() => { setPaymentPlan(null); setPayment(null); setModalClosing(false) }, 280)
+    window.setTimeout(() => {
+      setPaymentPlan(null)
+      setPayment(null)
+      setModalClosing(false)
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    }, 280)
   }
 
   function closeAction() {
     setModalClosing(true)
-    window.setTimeout(() => { setModal(null); setModalClosing(false) }, 280)
+    window.setTimeout(() => {
+      setModal(null)
+      setModalClosing(false)
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    }, 280)
   }
 
   async function removeDevice(device: Device) {
@@ -476,10 +485,13 @@ export default function CabinetV2() {
   const shownMonth = selectedMonth ?? currentMonth
   const shownUsage = traffic?.months.find((month) => month.month === shownMonth)?.used_bytes ?? 0
   const maxUsage = Math.max(1, ...(traffic?.months.map((month) => month.used_bytes) ?? [1]))
-  const displayName = me.user.display_name || 'Пользователь NOVA'
-  const telegramPhoto = window.Telegram?.WebApp.initDataUnsafe?.user?.photo_url
-  const profileNameClass = displayName.length > 28 ? 'is-very-long' : displayName.length > 16 ? 'is-long' : ''
+  const telegramUser = window.Telegram?.WebApp.initDataUnsafe?.user
+  const telegramDisplayName = [telegramUser?.first_name, telegramUser?.last_name].filter(Boolean).join(' ').trim()
+  const displayName = telegramDisplayName || me.user.display_name || 'Пользователь NOVA'
+  const telegramPhoto = telegramUser?.photo_url
+  const profileNameClass = displayName.length > 24 ? 'is-very-long' : displayName.length > 12 ? 'is-long' : displayName.length > 8 ? 'is-medium' : ''
   const availableDeviceSlots = Math.max(0, limit - devices.length)
+  const showDeviceSlot = !active || availableDeviceSlots > 0
   const sortedPlans = [...plans].sort((a, b) => planRank(a) - planRank(b))
   const adminPlan = plans.find((plan) => plan.id === adminPlanId) ?? sortedPlans[0]
 
@@ -545,7 +557,7 @@ export default function CabinetV2() {
           <header className="page-title compact"><p className="kicker">Подключения</p><div className="device-title-row"><h2>Устройства</h2><button className="circle-action" onClick={() => setModal(access?.subscription_url ? { kicker: 'Новое устройство', title: 'Добавьте подписку.', copy: 'Скопируйте персональную ссылку и импортируйте её в Happ или v2RayTun.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Новое устройство', title: 'Сначала нужен тариф.', copy: 'После оплаты персональная ссылка появится здесь автоматически.', action: 'Выбрать тариф', onAction: () => { setModal(null); navigate('plans') } })} aria-label="Добавить устройство"><Icon name="plus" /></button></div></header>
           <div className="timeline">
             {devices.map((device, index) => <button className={`timeline-row ${index === 0 ? 'active' : ''}`} key={device.hardware_id} onClick={() => setModal({ kicker: 'Устройство', title: shortDeviceName(device), copy: device.last_seen_at ? `Последняя активность: ${formatDate(device.last_seen_at)}. Можно отвязать устройство от подписки.` : 'Устройство зарегистрировано в Remnawave.', action: 'Удалить устройство', onAction: () => removeDevice(device) })}><span className="timeline-node" /><small>{index === 0 ? 'Сейчас' : device.last_seen_at ? new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(device.last_seen_at)) : 'Недавно'}</small><div><span className="device-art"><Icon name={deviceIcon(device)} /></span><p><strong>{shortDeviceName(device)}</strong><small>{device.platform || 'Платформа не определена'}</small></p>{index === 0 ? <b>Активно</b> : <Icon name="chevron" />}</div></button>)}
-            {availableDeviceSlots > 0 && <button className="timeline-row empty" key="free-slot" onClick={() => setModal(access?.subscription_url ? { kicker: 'Свободное место', title: 'Подключите устройство.', copy: 'Скопируйте персональную ссылку и импортируйте её в совместимое приложение.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Подключение', title: 'Нет активного тарифа.', copy: 'Выберите тариф, чтобы получить персональную ссылку.' })}><span className="timeline-node" /><small>Свободно</small><div><span className="device-art"><Icon name="plus" /></span><p><strong>Добавить устройство</strong><small>Доступно ещё {availableDeviceSlots}</small></p><Icon name="chevron" /></div></button>}
+            {showDeviceSlot && <button className="timeline-row empty" key="free-slot" onClick={(event) => { event.currentTarget.blur(); setModal(access?.subscription_url ? { kicker: 'Свободное место', title: 'Подключите устройство.', copy: 'Скопируйте персональную ссылку и импортируйте её в совместимое приложение.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Подключение', title: 'Сначала выберите тариф.', copy: 'После выдачи доступа здесь появится персональная ссылка и место для первого устройства.', action: 'Выбрать тариф', onAction: () => { setModal(null); navigate('plans') } }) }}><span className="timeline-node" /><small>{active ? 'Свободно' : 'Нет тарифа'}</small><div><span className="device-art"><Icon name="plus" /></span><p><strong>Добавить устройство</strong><small>{active ? `Доступно ещё ${availableDeviceSlots}` : 'Сначала выберите тариф'}</small></p><Icon name="chevron" /></div></button>}
           </div>
         </section>
 
@@ -576,23 +588,28 @@ export default function CabinetV2() {
         </section>
 
         {isOwner && <section className={`screen ${view === 'admin' ? 'is-visible' : ''}`}>
-          <header className="page-title admin-page-title"><p className="kicker">Пользователи</p><h2>Выдать доступ</h2></header>
-          <div className="admin-preview-layout">
-            <section className="admin-preview-panel admin-preview-search">
-              <label><span>Telegram ID</span><input inputMode="numeric" value={adminTelegramId} onChange={(event) => setAdminTelegramId(event.target.value.replace(/\D/g, ''))} placeholder="Введите ID пользователя" /></label>
-              <button type="button" disabled={adminBusy} onClick={() => void searchAdminUser()}>{adminBusy ? 'Ищем…' : 'Найти'}</button>
-              {adminUser && <div className="admin-preview-user"><span className="admin-preview-avatar">{initials(adminUser.display_name || 'Новый пользователь')}</span><p><small>Telegram ID{adminUser.username ? ` · @${adminUser.username}` : ''}</small><strong>{adminUser.display_name || 'Новый пользователь'}</strong><small>{adminUser.found ? adminUser.subscription ? `${adminUser.subscription.plan_name} · до ${formatDate(adminUser.subscription.expires_at)}` : 'Профиль найден, подписки нет' : 'Профиль будет создан при выдаче'}</small></p><b>{adminUser.remnawave_linked ? 'Связан' : adminUser.found ? 'Без VPN' : 'Новый'}</b></div>}
+          <header className="page-title admin-page-title"><p className="kicker">Управление доступом</p><h2>Выдать доступ</h2><p>Найдите пользователя и настройте его подписку.</p></header>
+          <div className="admin-grant-flow">
+            <section className="admin-grant-step admin-grant-recipient">
+              <header className="admin-grant-step__heading"><span>01</span><div><small>Получатель</small><h3>Найдите пользователя</h3></div></header>
+              <div className="admin-grant-search">
+                <label><span>Telegram ID</span><input inputMode="numeric" value={adminTelegramId} onChange={(event) => { setAdminTelegramId(event.target.value.replace(/\D/g, '')); setAdminUser(null); setAdminResult(null) }} placeholder="Например, 123456789" /></label>
+                <button type="button" disabled={adminBusy || !adminTelegramId} onClick={() => void searchAdminUser()}>{adminBusy ? 'Ищем…' : <>Найти <Icon name="arrow" /></>}</button>
+              </div>
+              {adminUser ? <div className="admin-grant-user"><span className="admin-grant-avatar">{initials(adminUser.display_name || 'Новый пользователь')}</span><p><small>{adminUser.username ? `@${adminUser.username} · ` : ''}ID {adminUser.telegram_id}</small><strong>{adminUser.display_name || 'Новый пользователь'}</strong><small>{adminUser.found ? adminUser.subscription ? `${adminUser.subscription.plan_name} · до ${formatDate(adminUser.subscription.expires_at)}` : 'Профиль найден, подписки нет' : 'Профиль будет создан при выдаче'}</small></p><b>{adminUser.remnawave_linked ? 'Связан' : adminUser.found ? 'Без VPN' : 'Новый'}</b></div> : <p className="admin-grant-hint">ID можно скопировать из профиля пользователя в Telegram.</p>}
             </section>
-            <section className="admin-preview-panel admin-preview-form">
-              <h3>Параметры подписки</h3>
-              <label><span>Тариф</span><select value={adminPlanId} onChange={(event) => setAdminPlanId(event.target.value)}>{sortedPlans.map((plan) => <option value={plan.id} key={plan.id}>{plan.name} · {formatMoney(plan.price_minor, plan.currency)}</option>)}</select></label>
-              <label><span>Устройства</span><select value={adminDeviceLimit} onChange={(event) => setAdminDeviceLimit(event.target.value)}><option value="5">До 5 устройств</option><option value="10">До 10 устройств</option></select></label>
-              <label><span>Начало</span><input type="date" max={new Date().toISOString().slice(0, 10)} value={adminStartsOn} onChange={(event) => setAdminStartsOn(event.target.value)} /></label>
-              <label><span>Комментарий</span><input value={adminComment} maxLength={240} onChange={(event) => setAdminComment(event.target.value)} /></label>
-              <div className="admin-preview-total"><span>Сумма ручной выдачи</span><strong>{adminPlan ? formatMoney(adminPlan.price_minor, adminPlan.currency) : '—'}</strong></div>
+            <section className={`admin-grant-step admin-grant-access ${adminUser ? 'is-ready' : ''}`}>
+              <header className="admin-grant-step__heading"><span>02</span><div><small>Параметры</small><h3>Настройте подписку</h3></div></header>
+              <div className="admin-grant-fields">
+                <label><span>Тариф</span><select value={adminPlanId} onChange={(event) => setAdminPlanId(event.target.value)}>{sortedPlans.map((plan) => <option value={plan.id} key={plan.id}>{plan.name} · {formatMoney(plan.price_minor, plan.currency)}</option>)}</select></label>
+                <label><span>Устройства</span><select value={adminDeviceLimit} onChange={(event) => setAdminDeviceLimit(event.target.value)}><option value="5">До 5 устройств</option><option value="10">До 10 устройств</option></select></label>
+                <label><span>Начало</span><input type="date" max={new Date().toISOString().slice(0, 10)} value={adminStartsOn} onChange={(event) => setAdminStartsOn(event.target.value)} /></label>
+                <label><span>Комментарий</span><input value={adminComment} maxLength={240} onChange={(event) => setAdminComment(event.target.value)} /></label>
+              </div>
+              <div className="admin-grant-summary"><span><small>Выбранный доступ</small><strong>{adminPlan?.name ?? 'Тариф не выбран'} · {adminDeviceLimit} устройств</strong></span><b>{adminPlan ? formatMoney(adminPlan.price_minor, adminPlan.currency) : '—'}</b></div>
               {adminError && <p className="admin-preview-message is-error" role="alert">{adminError}</p>}
               {adminResult && <p className="admin-preview-message is-success">Доступ выдан до {formatDate(adminResult.expires_at)}{adminResult.subscription_url ? ' · ссылка создана' : ''}</p>}
-              <button className="admin-preview-submit" type="button" disabled={adminBusy || !adminPlanId || !adminTelegramId} onClick={() => void submitAdminGrant()}>{adminBusy ? 'Выполняем…' : 'Создать и выдать доступ'} <Icon name="arrow" /></button>
+              <button className="admin-grant-submit" type="button" disabled={adminBusy || !adminPlanId || !adminTelegramId || !adminUser} onClick={() => void submitAdminGrant()}>{adminBusy ? 'Выполняем…' : 'Выдать доступ пользователю'} <Icon name="arrow" /></button>
             </section>
           </div>
         </section>}
