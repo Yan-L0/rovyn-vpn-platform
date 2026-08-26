@@ -209,6 +209,7 @@ export default function CabinetV2() {
   const [adminError, setAdminError] = useState<string | null>(null)
   const [adminResult, setAdminResult] = useState<AdminGrantResult | null>(null)
   const modalRef = useRef<HTMLElement | null>(null)
+  const deviceSyncPendingRef = useRef(false)
 
   const refreshLive = useCallback(async () => {
     const results = await Promise.allSettled([loadSubscriptionAccess(), loadYearlyTraffic(), loadDevices()])
@@ -300,6 +301,41 @@ export default function CabinetV2() {
     const timer = window.setInterval(() => void loadOrder(payment.order_id).then(setPayment).catch(() => undefined), 5000)
     return () => window.clearInterval(timer)
   }, [payment])
+
+  useEffect(() => {
+    if (visualPreview || view !== 'devices' || !me?.subscription) return
+    let disposed = false
+
+    const syncDevices = async () => {
+      if (disposed || document.visibilityState !== 'visible' || deviceSyncPendingRef.current) return
+      deviceSyncPendingRef.current = true
+      try {
+        const currentDevices = await loadDevices()
+        if (!disposed) setDevices(currentDevices)
+      } catch {
+        // Keep the last confirmed list during a transient provider failure.
+        // The next interval, focus or visibility event retries automatically.
+      } finally {
+        deviceSyncPendingRef.current = false
+      }
+    }
+
+    const wake = () => {
+      if (document.visibilityState === 'visible') void syncDevices()
+    }
+    void syncDevices()
+    const timer = window.setInterval(() => void syncDevices(), 4000)
+    window.addEventListener('focus', wake)
+    window.addEventListener('pageshow', wake)
+    document.addEventListener('visibilitychange', wake)
+    return () => {
+      disposed = true
+      window.clearInterval(timer)
+      window.removeEventListener('focus', wake)
+      window.removeEventListener('pageshow', wake)
+      document.removeEventListener('visibilitychange', wake)
+    }
+  }, [me?.subscription, view])
 
   useEffect(() => {
     const open = Boolean(modal || paymentPlan)
@@ -468,8 +504,8 @@ export default function CabinetV2() {
     }
     try {
       await revokeDevice(device.hardware_id)
-      await refreshLive()
-      setModal(null)
+      setDevices((current) => current.filter((item) => item.hardware_id !== device.hardware_id))
+      closeAction()
     } catch (reason) {
       setModal({ kicker: 'Устройства', title: 'Не получилось удалить.', copy: reason instanceof Error ? reason.message : 'Повторите попытку позднее.' })
     }

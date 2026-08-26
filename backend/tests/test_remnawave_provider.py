@@ -174,3 +174,114 @@ async def test_usage_history_maps_daily_remnawave_series() -> None:
         (date(2026, 7, 30), 2048),
         (date(2026, 7, 31), 4096),
     ]
+
+
+@pytest.mark.asyncio
+async def test_revoke_device_removes_hwid_and_drops_live_connections() -> None:
+    calls: list[tuple[str, str, dict | None]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        payload = __import__("json").loads(request.content) if request.content else None
+        calls.append((request.method, request.url.path, payload))
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "response": {
+                        "devices": [
+                            {
+                                "hwid": "device-hwid",
+                                "platform": "iOS",
+                                "deviceModel": "iPhone",
+                            }
+                        ]
+                    }
+                },
+                request=request,
+            )
+        if request.url.path == "/api/hwid/devices/delete":
+            return httpx.Response(
+                200,
+                json={"response": {"isDeleted": True}},
+                request=request,
+            )
+        return httpx.Response(
+            200,
+            json={"response": {"eventSent": True}},
+            request=request,
+        )
+
+    provider = RemnawaveProvider("https://panel.example", "api-token")
+    await provider._client.aclose()
+    provider._client = httpx.AsyncClient(
+        base_url="https://panel.example",
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        await provider.revoke_device(
+            "22222222-2222-4222-8222-222222222222",
+            "device-hwid",
+        )
+    finally:
+        await provider.close()
+
+    assert calls == [
+        (
+            "GET",
+            "/api/hwid/devices/22222222-2222-4222-8222-222222222222",
+            None,
+        ),
+        (
+            "POST",
+            "/api/hwid/devices/delete",
+            {
+                "userUuid": "22222222-2222-4222-8222-222222222222",
+                "hwid": "device-hwid",
+            },
+        ),
+        (
+            "POST",
+            "/api/ip-control/drop-connections",
+            {
+                "dropBy": {
+                    "by": "userUuids",
+                    "userUuids": ["22222222-2222-4222-8222-222222222222"],
+                },
+                "targetNodes": {"target": "allNodes"},
+            },
+        ),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_revoke_device_is_retryable_after_hwid_is_already_gone() -> None:
+    paths: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if request.method == "GET":
+            return httpx.Response(200, json={"response": {"devices": []}}, request=request)
+        return httpx.Response(
+            200,
+            json={"response": {"eventSent": True}},
+            request=request,
+        )
+
+    provider = RemnawaveProvider("https://panel.example", "api-token")
+    await provider._client.aclose()
+    provider._client = httpx.AsyncClient(
+        base_url="https://panel.example",
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        await provider.revoke_device(
+            "22222222-2222-4222-8222-222222222222",
+            "already-removed",
+        )
+    finally:
+        await provider.close()
+
+    assert paths == [
+        "/api/hwid/devices/22222222-2222-4222-8222-222222222222",
+        "/api/ip-control/drop-connections",
+    ]

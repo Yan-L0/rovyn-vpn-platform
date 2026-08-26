@@ -163,11 +163,29 @@ class RemnawaveProvider:
         return [self._map_device(row) for row in rows if isinstance(row, dict)]
 
     async def revoke_device(self, provider_id: str, hardware_id: str) -> None:
-        await self._request(
+        # HWID removal only prevents the client from fetching the subscription
+        # again. It does not terminate tunnels which are already established on
+        # a node, so explicitly request a connection drop as the second half of
+        # the revocation. The drop selector in Remnawave 2.8.1 is user-scoped;
+        # other registered devices can reconnect with their current profile.
+        devices = await self.get_devices(provider_id)
+        if any(device.hardware_id == hardware_id for device in devices):
+            await self._request(
+                "POST",
+                "/api/hwid/devices/delete",
+                json={"userUuid": provider_id, "hwid": hardware_id},
+            )
+
+        result = await self._request(
             "POST",
-            "/api/hwid/devices/delete",
-            json={"userUuid": provider_id, "hwid": hardware_id},
+            "/api/ip-control/drop-connections",
+            json={
+                "dropBy": {"by": "userUuids", "userUuids": [provider_id]},
+                "targetNodes": {"target": "allNodes"},
+            },
         )
+        if not isinstance(result, Mapping) or result.get("eventSent") is not True:
+            raise ProviderError("Remnawave did not acknowledge the connection drop")
 
     async def get_subscription_info(self, provider_id: str) -> ProviderUser:
         return self._map_user(await self._get_user(provider_id))

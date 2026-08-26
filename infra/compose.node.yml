@@ -31,6 +31,10 @@ services:
     container_name: remnanode
     hostname: remnanode
     network_mode: host
+    cap_add:
+      # Required by Remnawave's drop-connections action to terminate
+      # already established client tunnels after an HWID is revoked.
+      - NET_ADMIN
     env_file:
       - path: .env
         required: true
