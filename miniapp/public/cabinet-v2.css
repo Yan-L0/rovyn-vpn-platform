@@ -3811,3 +3811,107 @@ body.biorg-cabinet textarea {
 @media (prefers-reduced-motion:reduce) {
   .admin-grant-user { animation:none; }
 }
+
+/* v25 — balanced access rhythm, unclipped identities and consistent modal actions */
+.profile-title {
+  width:100%;
+  max-width:1040px;
+}
+.profile-identity-row {
+  width:min(100%,920px);
+}
+.profile-identity-copy {
+  max-width:min(70vw,720px);
+  overflow:visible;
+}
+.profile-identity-copy h2,
+.profile-identity-copy.is-medium h2,
+.profile-identity-copy.is-long h2,
+.profile-identity-copy.is-very-long h2 {
+  max-width:100%;
+  overflow:visible;
+  text-overflow:clip;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.profile-identity-copy h2 { font-size:clamp(50px,6.4vw,82px); }
+.profile-identity-copy.is-medium h2 { font-size:clamp(45px,5.8vw,74px); }
+.profile-identity-copy.is-long h2 { font-size:clamp(38px,4.8vw,62px); }
+.profile-identity-copy.is-very-long h2 { font-size:clamp(31px,3.9vw,50px); }
+
+/* The drag affordance belongs only to the mobile bottom sheet. */
+.modal-grabber { display:none; }
+.modal-actions > .modal-secondary:only-child {
+  grid-column:1 / -1;
+  width:100%;
+}
+
+@media (max-width:640px) {
+  .home-grid {
+    --home-rhythm:clamp(44px,6dvh,54px);
+    margin-top:0;
+  }
+  .home-primary { gap:var(--home-rhythm); }
+  .home-access-intro {
+    padding-top:var(--home-rhythm);
+    padding-bottom:0;
+  }
+
+  .profile-title { max-width:100%; }
+  .profile-identity-row {
+    width:min(100%,460px);
+    max-width:100%;
+  }
+  .profile-identity-copy {
+    max-width:calc(100vw - 158px);
+    overflow:visible;
+  }
+  .profile-identity-copy h2,
+  .profile-identity-copy.is-medium h2,
+  .profile-identity-copy.is-long h2,
+  .profile-identity-copy.is-very-long h2 {
+    overflow:visible;
+    text-overflow:clip;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+  .profile-identity-copy h2 { font-size:clamp(31px,8.8vw,42px); }
+  .profile-identity-copy.is-medium h2 { font-size:clamp(27px,7.6vw,36px); }
+  .profile-identity-copy.is-long h2 { font-size:clamp(23px,6.4vw,31px); }
+  .profile-identity-copy.is-very-long h2 { font-size:clamp(19px,5.2vw,26px); }
+  .profile-identity-copy small { margin-top:16px; }
+
+  .modal-grabber {
+    display:flex;
+  }
+  .modal-actions {
+    grid-template-columns:minmax(118px,.66fr) minmax(0,1.18fr);
+    gap:8px;
+  }
+  .modal-actions .modal-secondary {
+    order:1;
+    width:auto;
+    min-width:0;
+    min-height:58px;
+    padding:0 12px;
+    font-size:10px;
+    line-height:1.15;
+  }
+  .modal-actions .payment-submit,
+  .modal-actions .action-primary {
+    order:2;
+    min-width:0;
+  }
+  .modal-actions > .modal-secondary:only-child {
+    grid-column:1 / -1;
+  }
+}
+
+@media (max-width:360px), (max-height:700px) and (max-width:640px) {
+  .home-grid { --home-rhythm:30px; }
+  .modal-actions {
+    grid-template-columns:minmax(104px,.62fr) minmax(0,1.12fr);
+    gap:6px;
+  }
+  .modal-actions .modal-secondary { padding:0 9px; font-size:9px; }
+}

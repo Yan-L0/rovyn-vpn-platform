@@ -1,3 +1,5 @@
+/* Legacy cabinet components below are intentionally retained for rollback during the v2 rollout. */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   ArrowLeft,
@@ -54,6 +56,7 @@ import {
   type SubscriptionAccess,
   type YearlyUsage,
 } from './api'
+import CabinetV2 from './CabinetV2'
 
 type View = 'dashboard' | 'plans' | 'connect' | 'devices' | 'referral' | 'analytics' | 'wallet' | 'support' | 'chat' | 'legal'
 
@@ -112,7 +115,7 @@ function maskSubscriptionUrl(value: string): string {
     const firstSegment = parsed.pathname.split('/').filter(Boolean)[0]
     return `${parsed.origin}/${firstSegment ? `${firstSegment}/` : ''}••••••••`
   } catch {
-    return 'Персональная ссылка Remnawave'
+    return 'Персональная ссылка VPN'
   }
 }
 
@@ -304,133 +307,7 @@ function PublicSite() {
 }
 
 function MiniApp() {
-  const embedded = isTelegramEmbedded()
-  const params = new URLSearchParams(window.location.search)
-  const browserBypass = params.get('app') === '1'
-  const forceLogin = !embedded && params.get('login') === '1'
-  const [view, setView] = useState<View>(initialView)
-  const [me, setMe] = useState<Me | null>(null)
-  const [plans, setPlans] = useState<Plan[]>([])
-  const [access, setAccess] = useState<SubscriptionAccess | null>(null)
-  const [traffic, setTraffic] = useState<YearlyUsage | null>(null)
-  const [devices, setDevices] = useState<Device[]>([])
-  const [liveError, setLiveError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(!forceLogin)
-  const [showBrowserAuth, setShowBrowserAuth] = useState(forceLogin)
-  const [error, setError] = useState<string | null>(null)
-
-  const refreshRemnawave = useCallback(async () => {
-    const results = await Promise.allSettled([
-      loadSubscriptionAccess(),
-      loadYearlyTraffic(),
-      loadDevices(),
-    ])
-    const [accessResult, trafficResult, devicesResult] = results
-    if (accessResult.status === 'fulfilled') setAccess(accessResult.value)
-    if (trafficResult.status === 'fulfilled') setTraffic(trafficResult.value)
-    if (devicesResult.status === 'fulfilled') setDevices(devicesResult.value)
-    const failure = results.find((result) => result.status === 'rejected')
-    setLiveError(failure?.status === 'rejected'
-      ? failure.reason instanceof Error ? failure.reason.message : 'Remnawave временно недоступен'
-      : null)
-  }, [])
-
-  useEffect(() => {
-    window.Telegram?.WebApp.ready?.()
-    window.Telegram?.WebApp.expand?.()
-    const onHashChange = () => setView(initialView())
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
-
-  useEffect(() => {
-    if (forceLogin) return
-    async function boot() {
-      try {
-        if (embedded || browserBypass) {
-          await authenticate(window.Telegram?.WebApp.initData ?? '')
-        }
-        const [profile, catalog] = await Promise.all([loadMe(), loadPlans()])
-        setMe(profile)
-        setPlans(catalog)
-        if (profile.subscription) await refreshRemnawave()
-      } catch (reason) {
-        if (!embedded && !browserBypass) {
-          setShowBrowserAuth(true)
-        } else {
-          setError(reason instanceof Error ? reason.message : 'Не удалось открыть кабинет')
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-    void boot()
-  }, [browserBypass, embedded, forceLogin, refreshRemnawave])
-
-  useEffect(() => {
-    if (!me?.subscription) return
-    const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') void refreshRemnawave()
-    }
-    document.addEventListener('visibilitychange', refreshWhenVisible)
-    return () => document.removeEventListener('visibilitychange', refreshWhenVisible)
-  }, [me?.subscription, refreshRemnawave])
-
-  function navigate(next: View) {
-    window.location.hash = next
-    setView(next)
-    window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light')
-  }
-
-  if (loading) {
-    return <main className="center-state"><Brand /><LoaderCircle className="spinner" size={28} /><p>Создаём защищённую сессию…</p></main>
-  }
-  if (showBrowserAuth) {
-    return <BrowserAuth />
-  }
-  if (error || !me) {
-    return <main className="center-state error"><Brand /><ShieldCheck size={40} /><h1>Вход не выполнен</h1><p>{error}</p><small>Откройте приложение из официального Telegram-бота.</small></main>
-  }
-
-  return (
-    <div className={`app-shell reference-shell ${embedded ? 'telegram-mode' : 'browser-mode'}`}>
-      <aside className="reference-sidebar">
-        <button className="rail-logo" type="button" onClick={() => navigate('dashboard')} aria-label="NOVA — главная"><Brand compact /><small>NOVA</small></button>
-        <nav aria-label="Разделы кабинета">
-          <RailButton active={view === 'dashboard' || view === 'plans' || view === 'connect'} icon={<House />} label="Главная" onClick={() => navigate('dashboard')} />
-          <RailButton active={view === 'referral' || view === 'analytics'} icon={<Gift />} label="Реферальная программа" onClick={() => navigate('referral')} />
-          <RailButton active={view === 'support' || view === 'chat'} icon={<Headphones />} label="Поддержка" onClick={() => navigate('support')} />
-          <RailButton active={view === 'wallet' || view === 'devices' || view === 'legal'} icon={<Settings />} label="Настройки" onClick={() => navigate('wallet')} />
-        </nav>
-        <button className="rail-exit" type="button" aria-label="Выйти" disabled><LogOut /></button>
-      </aside>
-      <section className="reference-stage">
-        <div className="reference-gradient reference-gradient-one" />
-        <div className="reference-gradient reference-gradient-two" />
-        <div className="reference-gradient reference-gradient-three" />
-        <div className="reference-gradient reference-gradient-four" />
-        <header className="reference-mobile-header"><Brand /><button type="button" onClick={() => navigate('wallet')} aria-label="Настройки"><Settings /></button></header>
-        <main className="reference-content">
-          {view === 'dashboard' && <Dashboard me={me} access={access} traffic={traffic} devices={devices} liveError={liveError} onNavigate={navigate} />}
-          {view === 'plans' && <Plans plans={plans} browserCheckout={!embedded && !browserBypass} onBack={() => navigate('dashboard')} />}
-          {view === 'connect' && <Connect subscriptionUrl={access?.subscription_url ?? null} onNavigate={navigate} />}
-          {view === 'devices' && <Devices devices={devices} deviceLimit={access?.device_limit ?? me.subscription?.device_limit ?? 0} onRevoke={async (hardwareId) => { await revokeDevice(hardwareId); await refreshRemnawave() }} onNavigate={navigate} />}
-          {view === 'referral' && <Referral me={me} onNavigate={navigate} />}
-          {view === 'analytics' && <ReferralAnalytics onBack={() => navigate('referral')} />}
-          {view === 'wallet' && <Profile me={me} access={access} devices={devices} onNavigate={navigate} />}
-          {view === 'support' && <Support onNavigate={navigate} />}
-          {view === 'chat' && <SupportChat onBack={() => navigate('support')} />}
-          {view === 'legal' && <LegalDocuments onBack={() => navigate('wallet')} />}
-        </main>
-        <nav className="reference-mobile-nav" aria-label="Мобильная навигация">
-          <RailButton active={view === 'dashboard'} icon={<House />} label="Главная" onClick={() => navigate('dashboard')} />
-          <RailButton active={view === 'referral' || view === 'analytics'} icon={<Gift />} label="Друзья" onClick={() => navigate('referral')} />
-          <RailButton active={view === 'support' || view === 'chat'} icon={<Headphones />} label="Помощь" onClick={() => navigate('support')} />
-          <RailButton active={view === 'wallet' || view === 'devices' || view === 'legal'} icon={<Settings />} label="Настройки" onClick={() => navigate('wallet')} />
-        </nav>
-      </section>
-    </div>
-  )
+  return <CabinetV2 />
 }
 
 function RailButton({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
@@ -512,12 +389,12 @@ function Dashboard({ me, access, traffic, devices, liveError, onNavigate }: {
     <section className="reference-home">
       <div className={`subscription-notice ${providerActive ? 'active' : ''}`}>
         <span aria-hidden="true">{providerActive ? <Check /> : <Zap />}</span>
-        <p>{providerActive && expiry ? `Подписка NOVA активна в Remnawave до ${formatDate(expiry)}` : subscription ? 'Проверяем состояние подписки в Remnawave' : 'Продлите подписку, чтобы снова получить доступ ко всем функциям NOVA'}</p>
+        <p>{providerActive && expiry ? `Подписка NOVA активна до ${formatDate(expiry)}` : subscription ? 'Проверяем состояние подписки' : 'Продлите подписку, чтобы снова получить доступ ко всем функциям NOVA'}</p>
       </div>
       <div className="reference-account">
         <Brand />
         <span className="reference-balance"><small>Баланс</small><strong>{formatMoney(me.wallet_balance_minor, me.wallet_currency)}</strong></span>
-        <span className={`reference-status ${access?.provider_status === 'active' ? 'active' : ''}`}><i />{access ? `Remnawave: ${access.provider_status === 'active' ? 'активна' : access.provider_status}` : subscription ? 'Получаем статус Remnawave' : 'Подписка закончилась'}</span>
+        <span className={`reference-status ${access?.provider_status === 'active' ? 'active' : ''}`}><i />{access ? `VPN: ${access.provider_status === 'active' ? 'активен' : access.provider_status}` : subscription ? 'Получаем статус VPN' : 'Подписка закончилась'}</span>
         <div className="reference-chips">
           <span>{access ? `${devices.length} из ${access.device_limit} устройств` : 'Устройства недоступны'}</span>
           <span>{access ? access.plan_name : 'Тариф недоступен'}</span>
@@ -528,7 +405,7 @@ function Dashboard({ me, access, traffic, devices, liveError, onNavigate }: {
           <section className="live-usage" aria-label={`Трафик за ${traffic?.year ?? new Date().getFullYear()} год`}>
             <header>
               <div><small>Трафик в текущем месяце</small><strong>{traffic ? formatBytes(traffic.current_month_used_bytes) : '—'}</strong></div>
-              <span className={traffic?.source_status === 'fresh' ? 'fresh' : ''}>{traffic?.source_status === 'fresh' ? 'Обновлено из Remnawave' : traffic ? 'Последние сохранённые данные' : 'Нет данных'}</span>
+              <span className={traffic?.source_status === 'fresh' ? 'fresh' : ''}>{traffic?.source_status === 'fresh' ? 'Обновлено сейчас' : traffic ? 'Последние сохранённые данные' : 'Нет данных'}</span>
             </header>
             <div className="year-bars">
               {(traffic?.months ?? Array.from({ length: 12 }, (_, index) => ({ month: index + 1, used_bytes: 0, has_data: false }))).map((month) => (
@@ -793,7 +670,7 @@ function Connect({ subscriptionUrl, onNavigate }: { subscriptionUrl: string | nu
       <PagePill title={`Настроить на ${selectedPlatform.title}`} onBack={goBack} />
       <ol className="setup-steps">
         <li><span>1</span><div><h2>Скачайте приложение {selectedPlatform.id === 'chrome' ? 'NOVA' : 'Happ'}</h2><p>Установите совместимое приложение из официального магазина или дистрибутива.</p><button type="button" disabled><Download />{selectedPlatform.note.includes('Store') || selectedPlatform.note.includes('Play') ? selectedPlatform.note : `Скачать для ${selectedPlatform.title}`}</button></div></li>
-        <li><span>2</span><div><h2>Добавьте ключ-ссылку</h2><p>Скопируйте персональную ссылку Remnawave и импортируйте её на экране подключения.</p><div className="masked-key"><code>{subscriptionUrl ? maskSubscriptionUrl(subscriptionUrl) : 'Ссылка появится после активации подписки'}</code><button type="button" disabled={!subscriptionUrl} onClick={() => void copySubscriptionUrl()} aria-label="Скопировать ключ-ссылку">{copied ? <Check /> : <Copy />}</button></div>{copied && <small className="copy-success" role="status">Ссылка скопирована</small>}<button className="help-link" type="button" onClick={() => setShowImportHelp(true)}>Как импортировать ссылку?</button></div></li>
+        <li><span>2</span><div><h2>Добавьте ключ-ссылку</h2><p>Скопируйте персональную ссылку VPN и импортируйте её на экране подключения.</p><div className="masked-key"><code>{subscriptionUrl ? maskSubscriptionUrl(subscriptionUrl) : 'Ссылка появится после активации подписки'}</code><button type="button" disabled={!subscriptionUrl} onClick={() => void copySubscriptionUrl()} aria-label="Скопировать ключ-ссылку">{copied ? <Check /> : <Copy />}</button></div>{copied && <small className="copy-success" role="status">Ссылка скопирована</small>}<button className="help-link" type="button" onClick={() => setShowImportHelp(true)}>Как импортировать ссылку?</button></div></li>
       </ol>
       {showImportHelp && <div className="support-modal-backdrop" role="presentation" onMouseDown={() => setShowImportHelp(false)}><article className="support-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title" onMouseDown={(event) => event.stopPropagation()}><button className="support-modal-close" type="button" aria-label="Закрыть" onClick={() => setShowImportHelp(false)}><X /></button><h2 id="import-title">Как импортировать ссылку</h2><div className="import-demo"><span>+</span><i /><i /><i /></div><p>Вставьте ссылку на экране подключения в приложении VPN.</p><button className="reference-primary" type="button" onClick={() => setShowImportHelp(false)}>Понятно</button></article></div>}
     </section>
@@ -832,7 +709,7 @@ function Devices({ devices, deviceLimit, onRevoke, onNavigate }: {
     <section className="devices-screen">
       <PagePill title="Устройства" onBack={() => onNavigate('wallet')} action={<button type="button" aria-label="Добавить устройство" onClick={() => onNavigate('connect')}><Plus /></button>} />
       <article className="connected-devices-card">
-        <div><h2>Подключенные устройства</h2><p>Remnawave видит: {devices.length} из {deviceLimit}</p><small>Список обновляется при каждом открытии кабинета.</small></div>
+        <div><h2>Подключенные устройства</h2><p>Подключено: {devices.length} из {deviceLimit}</p><small>Список обновляется при каждом открытии кабинета.</small></div>
         <div className="device-art" aria-hidden="true"><Smartphone /><TabletSmartphone /></div>
       </article>
       <div className="device-slots">
@@ -843,7 +720,7 @@ function Devices({ devices, deviceLimit, onRevoke, onNavigate }: {
             <button className={confirming === device.hardware_id ? 'confirm' : ''} type="button" disabled={revoking === device.hardware_id} onClick={() => void removeDevice(device.hardware_id)}>{revoking === device.hardware_id ? <LoaderCircle className="spinner" /> : confirming === device.hardware_id ? 'Подтвердить' : 'Удалить'}</button>
           </article>
         ))}
-        {Array.from({ length: freeSlots }, (_, index) => <button type="button" key={`slot-${index}`} onClick={() => onNavigate('connect')}><span><Plus /></span><span><strong>Добавить устройство</strong><small>Свободное место Remnawave</small></span></button>)}
+        {Array.from({ length: freeSlots }, (_, index) => <button type="button" key={`slot-${index}`} onClick={() => onNavigate('connect')}><span><Plus /></span><span><strong>Добавить устройство</strong><small>Свободное место</small></span></button>)}
         {!devices.length && !freeSlots && <p className="empty-devices">Устройства пока не зарегистрированы или лимит тарифа равен нулю.</p>}
       </div>
       {deviceError && <p className="live-data-error" role="alert">{deviceError}</p>}
@@ -908,7 +785,7 @@ function Profile({ me, access, devices, onNavigate }: { me: Me; access: Subscrip
     <section className="settings-screen">
       <h1 className="reference-page-pill">Настройки</h1>
       <article className="settings-promo">
-        <div><h2>{access?.plan_name ?? 'Подписка'}</h2><p>{access ? `Активна до ${formatDate(access.expires_at)} · ${devices.length} из ${access.device_limit} устройств` : me.subscription ? 'Получаем данные из Remnawave' : 'Подписка не активна'}</p><button type="button" onClick={() => onNavigate('plans')}>Настроить <ArrowRight /></button></div>
+        <div><h2>{access?.plan_name ?? 'Подписка'}</h2><p>{access ? `Активна до ${formatDate(access.expires_at)} · ${devices.length} из ${access.device_limit} устройств` : me.subscription ? 'Получаем данные подписки' : 'Подписка не активна'}</p><button type="button" onClick={() => onNavigate('plans')}>Настроить <ArrowRight /></button></div>
         <div className="settings-pro-art" aria-hidden="true"><ShieldCheck /><strong>PRO</strong><i /></div>
       </article>
 
