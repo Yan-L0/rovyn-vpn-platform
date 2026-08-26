@@ -3915,3 +3915,62 @@ body.biorg-cabinet textarea {
   }
   .modal-actions .modal-secondary { padding:0 9px; font-size:9px; }
 }
+
+/* v26 — resilient cabinet chrome and compact data cards */
+.home-access-plan > div {
+  justify-content:flex-start;
+}
+
+.traffic-card {
+  overflow:hidden;
+}
+.traffic-bars {
+  flex:0 0 65px;
+  min-height:65px;
+  padding-bottom:2px;
+}
+.traffic-bars button {
+  min-width:0;
+  overflow:visible;
+}
+.traffic-bars button > span {
+  display:block;
+  min-height:12px;
+  line-height:12px;
+}
+
+@media (max-width:640px) {
+  .chrome,
+  .shell.telegram-embedded .chrome,
+  .shell.browser-embedded .chrome {
+    min-height:38px;
+    height:38px;
+    padding-top:0;
+    overflow:visible;
+  }
+  .chrome .section-label,
+  .shell.browser-embedded .chrome .section-label {
+    position:static;
+    top:auto;
+    display:block;
+    align-self:center;
+    justify-self:center;
+    line-height:1.2;
+    transform:none;
+  }
+  .shell.telegram-embedded .chrome .section-label {
+    position:relative;
+    top:-16px;
+  }
+}
+
+@media (min-width:641px) and (max-height:760px) {
+  .traffic-card {
+    min-height:190px;
+    padding-bottom:14px;
+  }
+  .traffic-bars {
+    flex-basis:54px;
+    min-height:54px;
+  }
+}

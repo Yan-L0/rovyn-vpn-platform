@@ -249,7 +249,12 @@ export default function CabinetV2() {
         // Unsupported clients remain in Telegram's expanded full-size mode.
       }
     }
-    const onHash = () => setView(initialView())
+    const onHash = () => {
+      setView(initialView())
+      window.scrollTo({ top: 0, behavior: 'auto' })
+    }
+    window.history.scrollRestoration = 'manual'
+    window.scrollTo({ top: 0, behavior: 'auto' })
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -445,7 +450,7 @@ export default function CabinetV2() {
   function navigate(next: CabinetView) {
     setView(next)
     window.location.hash = next
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'auto' })
     window.Telegram?.WebApp.HapticFeedback?.impactOccurred('light')
   }
 
@@ -554,7 +559,7 @@ export default function CabinetV2() {
               </section>
               <article className="home-access-plan">
                 <p>{active ? 'Подписка активна' : 'Готово к подключению'}</p>
-                <div><strong>{active ? access!.plan_name : 'Выберите свой ритм.'}</strong><span>{active ? days : '01'}</span></div>
+                <div><strong>{active ? access!.plan_name : 'Выберите свой ритм.'}</strong></div>
                 <small>{active ? `${formatTrafficLimit(access!.usage.traffic_limit_bytes)} · до ${limit} устройств` : 'До 5 устройств · безлимитный трафик'}</small>
                 <button className="home-access-plan__action" onClick={() => active ? void copyAccess() : navigate('plans')}>{active ? 'Открыть подключение' : 'Выбрать тариф'} <Icon name="arrow" /></button>
               </article>
@@ -590,7 +595,7 @@ export default function CabinetV2() {
         </section>
 
         <section className={`screen ${view === 'devices' ? 'is-visible' : ''}`}>
-          <header className="page-title compact"><p className="kicker">Подключения</p><div className="device-title-row"><h2>Устройства</h2><button className="circle-action" onClick={() => setModal(access?.subscription_url ? { kicker: 'Новое устройство', title: 'Добавьте подписку.', copy: 'Скопируйте персональную ссылку и импортируйте её в Happ или v2RayTun.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Новое устройство', title: 'Сначала нужен тариф.', copy: 'После оплаты персональная ссылка появится здесь автоматически.', action: 'Выбрать тариф', onAction: () => { setModal(null); navigate('plans') } })} aria-label="Добавить устройство"><Icon name="plus" /></button></div></header>
+          <header className="page-title compact"><p className="kicker">Подключения</p><div className="device-title-row"><h2>Устройства</h2></div></header>
           <div className="timeline">
             {devices.map((device, index) => <button className={`timeline-row ${index === 0 ? 'active' : ''}`} key={device.hardware_id} onClick={() => setModal({ kicker: 'Устройство', title: shortDeviceName(device), copy: device.last_seen_at ? `Последняя активность: ${formatDate(device.last_seen_at)}. Можно отвязать устройство от подписки.` : 'Устройство зарегистрировано в VPN-сервисе.', action: 'Удалить устройство', onAction: () => removeDevice(device) })}><span className="timeline-node" /><small>{index === 0 ? 'Сейчас' : device.last_seen_at ? new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(device.last_seen_at)) : 'Недавно'}</small><div><span className="device-art"><Icon name={deviceIcon(device)} /></span><p><strong>{shortDeviceName(device)}</strong><small>{device.platform || 'Платформа не определена'}</small></p>{index === 0 ? <b>Активно</b> : <Icon name="chevron" />}</div></button>)}
             {showDeviceSlot && <button className="timeline-row empty" key="free-slot" onClick={(event) => { event.currentTarget.blur(); setModal(access?.subscription_url ? { kicker: 'Свободное место', title: 'Подключите устройство.', copy: 'Скопируйте персональную ссылку и импортируйте её в совместимое приложение.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Подключение', title: 'Сначала выберите тариф.', copy: 'После выдачи доступа здесь появится персональная ссылка и место для первого устройства.', action: 'Выбрать тариф', onAction: () => { setModal(null); navigate('plans') } }) }}><span className="timeline-node" /><small>{active ? 'Свободно' : 'Нет тарифа'}</small><div><span className="device-art"><Icon name="plus" /></span><p><strong>Добавить устройство</strong><small>{active ? `Доступно ещё ${availableDeviceSlots}` : 'Сначала выберите тариф'}</small></p><Icon name="chevron" /></div></button>}
@@ -600,10 +605,10 @@ export default function CabinetV2() {
         <section className={`screen ${view === 'support' ? 'is-visible' : ''}`}>
           <header className="page-title"><p className="kicker">Поддержка</p><h2>Мы рядом,<br />когда нужно.</h2></header>
           <div className="support-grid">
-            <button className="contact-card" onClick={() => setModal({ kicker: 'Поддержка', title: 'Напишите оператору.', copy: 'Опишите устройство, приложение и что именно происходит. Так мы быстрее найдём причину.', action: 'Открыть Telegram', onAction: () => { if (window.Telegram?.WebApp.openLink) window.Telegram.WebApp.openLink('https://t.me/rovynBot'); else window.open('https://t.me/rovynBot', '_blank', 'noopener,noreferrer') } })}><span>Написать оператору</span><strong>Среднее время<br />ответа — 3 минуты</strong><i><Icon name="arrow" /></i></button>
+            <button className="contact-card" onClick={() => setModal({ kicker: 'Поддержка', title: 'Напишите оператору.', copy: 'Telegram: @product_vpn. Опишите устройство, приложение и что именно происходит — так мы быстрее найдём причину.', action: 'Открыть Telegram', onAction: () => { if (window.Telegram?.WebApp.openLink) window.Telegram.WebApp.openLink('https://t.me/product_vpn'); else window.open('https://t.me/product_vpn', '_blank', 'noopener,noreferrer') } })}><span>Telegram · @product_vpn</span><strong>Среднее время<br />ответа — 3 минуты</strong><i><Icon name="arrow" /></i></button>
             <div className="questions">
               <FaqButton index="01" title="VPN не подключается" copy="Проверьте интернет без VPN, затем обновите подписку в приложении и попробуйте другой профиль. Если не помогло — пришлите оператору название профиля и приложения." setModal={setModal} />
-              <FaqButton index="02" title="Как установить VPN?" copy="На странице «Устройства» нажмите плюс, скопируйте персональную ссылку и импортируйте её в Happ или v2RayTun." setModal={setModal} />
+              <FaqButton index="02" title="Как установить VPN?" copy="На странице «Устройства» откройте строку «Добавить устройство», скопируйте персональную ссылку и импортируйте её в Happ или v2RayTun." setModal={setModal} />
               <FaqButton index="03" title="Интернет стал медленнее" copy="Смените серверный профиль, отключите ограничение энергосбережения и сравните скорость в одной сети. Передайте оператору результаты двух замеров." setModal={setModal} />
             </div>
           </div>
