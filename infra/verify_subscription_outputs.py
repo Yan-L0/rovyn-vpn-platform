@@ -105,6 +105,12 @@ def main() -> int:
         quic = finalmask.get("quicParams", {})
         if quic.get("congestion") != "bbr":
             raise RuntimeError("Hysteria2 FinalMask BBR is missing")
+        if quic.get("maxIdleTimeout") != 30:
+            raise RuntimeError("Hysteria2 stale-path timeout is incorrect")
+        if quic.get("keepAlivePeriod") != 10:
+            raise RuntimeError("Hysteria2 keepalive period is incorrect")
+        if quic.get("disablePathMTUDiscovery") is not True:
+            raise RuntimeError("Hysteria2 safe mobile MTU mode is missing")
 
         routing_header = next(
             (value for key, value in headers.items() if key.lower() == "routing"),
@@ -130,7 +136,7 @@ def main() -> int:
         print("raw_reality=valid")
         print("grpc_tls=valid")
         print("xhttp_tls=valid")
-        print("hysteria2_bbr=valid")
+        print("hysteria2_bbr_and_recovery=valid")
         print("routing_v2raytun=6_rules")
         print("routing_happ=6_rules")
         return 0

@@ -1,0 +1,12 @@
+[Unit]
+Description=Check Rovyn VPN node health every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60s
+RandomizedDelaySec=10s
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Rovyn VPN node health watchdog
+After=docker.service rovyn-node-compose.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/rovyn-node-watchdog
+TimeoutStartSec=90
+Nice=10

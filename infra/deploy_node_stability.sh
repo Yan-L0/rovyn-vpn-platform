@@ -9,6 +9,9 @@ staged_compose="${base_dir}/compose.node.yml"
 sysctl_file="/etc/sysctl.d/99-rovyn-vpn.conf"
 service_file="/etc/systemd/system/rovyn-network-tuning.service"
 compose_service_file="/etc/systemd/system/rovyn-node-compose.service"
+watchdog_script="/usr/local/sbin/rovyn-node-watchdog"
+watchdog_service_file="/etc/systemd/system/rovyn-node-watchdog.service"
+watchdog_timer_file="/etc/systemd/system/rovyn-node-watchdog.timer"
 renewal_hook="/etc/letsencrypt/renewal-hooks/deploy/remnanode-cert-deploy"
 committed="false"
 
@@ -22,6 +25,9 @@ for required in \
   "${base_dir}/99-rovyn-vpn.conf" \
   "${base_dir}/rovyn-network-tuning.service" \
   "${base_dir}/rovyn-node-compose.service" \
+  "${base_dir}/rovyn-node-watchdog.sh" \
+  "${base_dir}/rovyn-node-watchdog.service" \
+  "${base_dir}/rovyn-node-watchdog.timer" \
   "${base_dir}/remnanode-cert-deploy.sh" \
   "${base_dir}/nginx-reality-fallback.conf" \
   "${base_dir}/reality-fallback.html" \
@@ -51,6 +57,18 @@ if [ -f "${renewal_hook}" ]; then
 else
   : >"${backup_dir}/renewal-hook.was-absent"
 fi
+for watchdog_path in \
+  "${watchdog_script}" \
+  "${watchdog_service_file}" \
+  "${watchdog_timer_file}"
+do
+  watchdog_name="$(basename "${watchdog_path}")"
+  if [ -f "${watchdog_path}" ]; then
+    cp -a "${watchdog_path}" "${backup_dir}/${watchdog_name}"
+  else
+    : >"${backup_dir}/${watchdog_name}.was-absent"
+  fi
+done
 
 rollback() {
   if [ "${committed}" = "true" ]; then
@@ -74,6 +92,19 @@ rollback() {
   else
     cp -a "${backup_dir}/remnanode-cert-deploy" "${renewal_hook}"
   fi
+  systemctl disable --now rovyn-node-watchdog.timer >/dev/null 2>&1 || true
+  for watchdog_path in \
+    "${watchdog_script}" \
+    "${watchdog_service_file}" \
+    "${watchdog_timer_file}"
+  do
+    watchdog_name="$(basename "${watchdog_path}")"
+    if [ -f "${backup_dir}/${watchdog_name}.was-absent" ]; then
+      rm -f "${watchdog_path}"
+    else
+      cp -a "${backup_dir}/${watchdog_name}" "${watchdog_path}"
+    fi
+  done
   systemctl daemon-reload
   sysctl --system >/dev/null 2>&1 || true
   docker compose -f "${compose_file}" up -d --remove-orphans >/dev/null 2>&1 || true
@@ -81,6 +112,7 @@ rollback() {
 trap rollback EXIT HUP INT TERM
 
 docker compose -f "${staged_compose}" config -q
+bash -n "${base_dir}/rovyn-node-watchdog.sh"
 docker run --rm \
   --network host \
   -v "${base_dir}/nginx-reality-fallback.conf:/etc/nginx/nginx.conf:ro" \
@@ -92,13 +124,18 @@ systemd-analyze verify "${base_dir}/rovyn-network-tuning.service"
 install -m 0644 "${base_dir}/99-rovyn-vpn.conf" "${sysctl_file}"
 install -m 0644 "${base_dir}/rovyn-network-tuning.service" "${service_file}"
 install -m 0644 "${base_dir}/rovyn-node-compose.service" "${compose_service_file}"
+install -m 0755 "${base_dir}/rovyn-node-watchdog.sh" "${watchdog_script}"
+install -m 0644 "${base_dir}/rovyn-node-watchdog.service" "${watchdog_service_file}"
+install -m 0644 "${base_dir}/rovyn-node-watchdog.timer" "${watchdog_timer_file}"
 install -m 0755 "${base_dir}/remnanode-cert-deploy.sh" "${renewal_hook}"
 install -m 0600 "${staged_compose}" "${compose_file}"
 
 sysctl --system >/dev/null
 systemctl daemon-reload
+systemd-analyze verify "${watchdog_service_file}" "${watchdog_timer_file}"
 systemctl enable --now rovyn-network-tuning.service
 systemctl enable --now rovyn-node-compose.service
+systemctl enable --now rovyn-node-watchdog.timer
 docker compose -f "${compose_file}" up -d --remove-orphans
 
 attempt=0
@@ -128,6 +165,12 @@ if [ "${fallback_health}" != "healthy" ] \
   || [ "${management_ready}" != "true" ]
 then
   echo "containers did not become healthy in time" >&2
+  exit 1
+fi
+
+systemctl start rovyn-node-watchdog.service
+if ! systemctl is-active --quiet rovyn-node-watchdog.timer; then
+  echo "node watchdog timer is not active" >&2
   exit 1
 fi
 

@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,7 @@ REALITY_TARGET = "127.0.0.1:9443"
 REALITY_SNI = NODE_ADDRESS
 CERTIFICATE_FILE = "/var/lib/remnawave/configs/xray/ssl/fullchain.pem"
 PRIVATE_KEY_FILE = "/var/lib/remnawave/configs/xray/ssl/privkey.pem"
+BACKUP_DIRECTORY = Path("/opt/remnawave/backups")
 
 
 def read_env(path: str) -> dict[str, str]:
@@ -164,7 +167,7 @@ def profile_config(secrets: dict[str, str]) -> dict[str, Any]:
                     "hysteriaSettings": {
                         "version": 2,
                         "auth": secrets["HYSTERIA_AUTH"],
-                        "udpIdleTimeout": 60,
+                        "udpIdleTimeout": 30,
                     },
                     "finalmask": {
                         "quicParams": {
@@ -175,9 +178,11 @@ def profile_config(secrets: dict[str, str]) -> dict[str, Any]:
                             "maxStreamReceiveWindow": 8388608,
                             "initConnectionReceiveWindow": 20971520,
                             "maxConnectionReceiveWindow": 20971520,
-                            "maxIdleTimeout": 60,
-                            "keepAlivePeriod": 15,
-                            "disablePathMTUDiscovery": False,
+                            # Detect a dead mobile/NAT path quickly and use the
+                            # conservative QUIC packet size after network changes.
+                            "maxIdleTimeout": 30,
+                            "keepAlivePeriod": 10,
+                            "disablePathMTUDiscovery": True,
                             "maxIncomingStreams": 1024,
                         }
                     },
@@ -221,6 +226,11 @@ def main() -> int:
     profiles = as_list(api(token, "GET", "/api/config-profiles/"), "configProfiles", "items")
     profile = next((item for item in profiles if item.get("name") == PROFILE_NAME), None)
     if profile:
+        BACKUP_DIRECTORY.mkdir(mode=0o700, parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        backup_path = BACKUP_DIRECTORY / f"config-profile-{timestamp}.json"
+        backup_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2))
+        os.chmod(backup_path, 0o600)
         profile = api(
             token,
             "PATCH",
@@ -367,6 +377,8 @@ def main() -> int:
             f"port={item.get('port')}"
         )
     print(f"node={NODE_UUID} squad={SQUAD_UUID} hosts={len(host_specs)}")
+    if action == "updated":
+        print(f"backup_created={backup_path}")
     return 0
 
 

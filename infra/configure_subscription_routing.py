@@ -72,6 +72,11 @@ def routing_document() -> dict[str, Any]:
                 "__name__": "Локальные сервисы напрямую",
                 "type": "field",
                 "domain": [
+                    # Subscription refresh must not depend on the health of
+                    # the currently selected VPN tunnel.
+                    "domain:subscription.vpn.example",
+                    "domain:panel.vpn.example",
+                    "domain:bot.vpn.example",
                     "domain:mtalk.google.com",
                     "domain:push.apple.com",
                     "domain:api.push.apple.com",
