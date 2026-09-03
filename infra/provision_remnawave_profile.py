@@ -97,6 +97,13 @@ def profile_config(secrets: dict[str, str]) -> dict[str, Any]:
             ],
         }
 
+    def stable_tcp_sockopt() -> dict[str, Any]:
+        return {
+            "tcpKeepAliveIdle": 45,
+            "tcpKeepAliveInterval": 15,
+            "tcpUserTimeout": 30000,
+        }
+
     return {
         "log": {"loglevel": "warning"},
         "inbounds": [
@@ -114,6 +121,7 @@ def profile_config(secrets: dict[str, str]) -> dict[str, Any]:
                     "network": "raw",
                     "security": "reality",
                     "realitySettings": reality_settings(0),
+                    "sockopt": stable_tcp_sockopt(),
                 },
                 "sniffing": sniffing,
             },
@@ -131,6 +139,7 @@ def profile_config(secrets: dict[str, str]) -> dict[str, Any]:
                         "serviceName": secrets["GRPC_SERVICE"],
                         "multiMode": False,
                     },
+                    "sockopt": stable_tcp_sockopt(),
                 },
                 "sniffing": sniffing,
             },
@@ -148,6 +157,7 @@ def profile_config(secrets: dict[str, str]) -> dict[str, Any]:
                         "path": secrets["XHTTP_PATH"],
                         "mode": "stream-up",
                     },
+                    "sockopt": stable_tcp_sockopt(),
                 },
                 "sniffing": sniffing,
             },
@@ -225,9 +235,9 @@ def main() -> int:
 
     profiles = as_list(api(token, "GET", "/api/config-profiles/"), "configProfiles", "items")
     profile = next((item for item in profiles if item.get("name") == PROFILE_NAME), None)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     if profile:
         BACKUP_DIRECTORY.mkdir(mode=0o700, parents=True, exist_ok=True)
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         backup_path = BACKUP_DIRECTORY / f"config-profile-{timestamp}.json"
         backup_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2))
         os.chmod(backup_path, 0o600)
@@ -292,6 +302,11 @@ def main() -> int:
             "alpn": "http/1.1",
             "fingerprint": "firefox",
             "xhttpExtraParams": None,
+            "sockoptParams": {
+                "tcpKeepAliveIdle": 45,
+                "tcpKeepAliveInterval": 15,
+                "tcpUserTimeout": 30000,
+            },
             "serverDescription": None,
         },
         {
@@ -302,6 +317,11 @@ def main() -> int:
             "alpn": "h2",
             "fingerprint": "firefox",
             "xhttpExtraParams": None,
+            "sockoptParams": {
+                "tcpKeepAliveIdle": 45,
+                "tcpKeepAliveInterval": 15,
+                "tcpUserTimeout": 30000,
+            },
             "serverDescription": None,
         },
         {
@@ -312,6 +332,11 @@ def main() -> int:
             "alpn": "h2",
             "fingerprint": "firefox",
             "xhttpExtraParams": None,
+            "sockoptParams": {
+                "tcpKeepAliveIdle": 45,
+                "tcpKeepAliveInterval": 15,
+                "tcpUserTimeout": 30000,
+            },
             "serverDescription": None,
         },
         {
@@ -322,16 +347,24 @@ def main() -> int:
             "alpn": "h3",
             "fingerprint": None,
             "xhttpExtraParams": None,
+            "sockoptParams": None,
             "serverDescription": None,
         },
     ]
 
     existing_hosts = as_list(api(token, "GET", "/api/hosts/"), "hosts", "items")
+    BACKUP_DIRECTORY.mkdir(mode=0o700, parents=True, exist_ok=True)
     existing_by_tag: dict[str, dict[str, Any]] = {}
     for host in existing_hosts:
         for tag in host.get("tags", []):
             if tag.startswith("ROVYN_"):
                 existing_by_tag[tag] = host
+
+    hosts_backup_path = BACKUP_DIRECTORY / f"managed-hosts-{timestamp}.json"
+    hosts_backup_path.write_text(
+        json.dumps(list(existing_by_tag.values()), ensure_ascii=False, indent=2)
+    )
+    os.chmod(hosts_backup_path, 0o600)
 
     for spec in host_specs:
         managed_tag = "ROVYN_" + spec["tag"].replace("-", "_")
@@ -349,6 +382,7 @@ def main() -> int:
             "alpn": spec["alpn"],
             "fingerprint": spec["fingerprint"],
             "xhttpExtraParams": spec["xhttpExtraParams"],
+            "sockoptParams": spec["sockoptParams"],
             "isDisabled": False,
             "securityLayer": "DEFAULT",
             "serverDescription": spec["serverDescription"],
@@ -379,6 +413,7 @@ def main() -> int:
     print(f"node={NODE_UUID} squad={SQUAD_UUID} hosts={len(host_specs)}")
     if action == "updated":
         print(f"backup_created={backup_path}")
+    print(f"hosts_backup_created={hosts_backup_path}")
     return 0
 
 

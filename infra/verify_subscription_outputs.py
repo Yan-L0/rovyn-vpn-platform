@@ -120,7 +120,35 @@ def main() -> int:
         if len(routing.get("rules", [])) != 6:
             raise RuntimeError("routing header does not contain 6 rules")
 
-        _, happ_headers = fetch(created["subscriptionUrl"], "Happ/3.0")
+        happ_body, happ_headers = fetch(
+            created["subscriptionUrl"], "Happ/5.5.0/ios"
+        )
+        happ_configs = json.loads(happ_body)
+        if not isinstance(happ_configs, list):
+            raise RuntimeError("Happ subscription is not a JSON config list")
+        recovered_networks: set[str] = set()
+        for config in happ_configs:
+            for outbound in config.get("outbounds", []):
+                stream = outbound.get("streamSettings", {})
+                network = stream.get("network")
+                if network not in {"raw", "tcp", "grpc", "xhttp"}:
+                    continue
+                sockopt = stream.get("sockopt", {})
+                if sockopt.get("tcpKeepAliveIdle") != 45:
+                    raise RuntimeError(f"{network} TCP keepalive idle is incorrect")
+                if sockopt.get("tcpKeepAliveInterval") != 15:
+                    raise RuntimeError(
+                        f"{network} TCP keepalive interval is incorrect"
+                    )
+                if sockopt.get("tcpUserTimeout") != 30000:
+                    raise RuntimeError(f"{network} TCP user timeout is incorrect")
+                recovered_networks.add("raw" if network == "tcp" else network)
+        missing_networks = {"raw", "grpc", "xhttp"} - recovered_networks
+        if missing_networks:
+            raise RuntimeError(
+                "Happ TCP recovery settings are missing for: "
+                + ", ".join(sorted(missing_networks))
+            )
         happ_routing = next(
             (
                 value
@@ -136,6 +164,7 @@ def main() -> int:
         print("raw_reality=valid")
         print("grpc_tls=valid")
         print("xhttp_tls=valid")
+        print("tcp_recovery_happ=3/3")
         print("hysteria2_bbr_and_recovery=valid")
         print("routing_v2raytun=6_rules")
         print("routing_happ=6_rules")

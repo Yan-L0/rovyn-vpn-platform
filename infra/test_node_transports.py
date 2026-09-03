@@ -33,6 +33,8 @@ OUTBOUND_INTERFACE = os.environ.get("E2E_OUTBOUND_INTERFACE", "")
 FINGERPRINT_OVERRIDE = os.environ.get("E2E_FINGERPRINT_OVERRIDE", "")
 XHTTP_MODE_OVERRIDE = os.environ.get("E2E_XHTTP_MODE_OVERRIDE", "")
 TEST_TIMEOUT = int(os.environ.get("E2E_TIMEOUT", "20"))
+IDLE_SECONDS = int(os.environ.get("E2E_IDLE_SECONDS", "0"))
+SOCKS_BASE_PORT = int(os.environ.get("E2E_SOCKS_BASE_PORT", "10880"))
 
 
 def sanitize(message: str) -> str:
@@ -288,25 +290,31 @@ def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
                 stderr=subprocess.DEVNULL,
             )
         time.sleep(2)
-        result = subprocess.run(
-            [
-                "curl",
-                "--silent",
-                "--show-error",
-                "--output",
-                "/dev/null",
-                "--write-out",
-                "%{http_code} %{speed_download}",
-                "--max-time",
-                str(TEST_TIMEOUT),
-                "--socks5-hostname",
-                f"127.0.0.1:{socks_port}",
-                TEST_URL,
-            ],
-            text=True,
-            capture_output=True,
-            timeout=TEST_TIMEOUT + 5,
-        )
+        def probe() -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                [
+                    "curl",
+                    "--silent",
+                    "--show-error",
+                    "--output",
+                    "/dev/null",
+                    "--write-out",
+                    "%{http_code} %{speed_download}",
+                    "--max-time",
+                    str(TEST_TIMEOUT),
+                    "--socks5-hostname",
+                    f"127.0.0.1:{socks_port}",
+                    TEST_URL,
+                ],
+                text=True,
+                capture_output=True,
+                timeout=TEST_TIMEOUT + 5,
+            )
+
+        result = probe()
+        if result.returncode == 0 and result.stdout.split()[:1] == ["200"] and IDLE_SECONDS:
+            time.sleep(IDLE_SECONDS)
+            result = probe()
         fields = result.stdout.split()
         if result.returncode == 0 and fields and fields[0] == "200":
             speed = float(fields[1]) * 8 / 1_000_000 if len(fields) > 1 else 0
@@ -369,7 +377,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="e2e-", dir=WORK_DIRECTORY) as directory:
         os.chmod(directory, 0o700)
         for index, link in enumerate(links):
-            socks_port = 10880 + index
+            socks_port = SOCKS_BASE_PORT + index
             label, config = make_config(link, socks_port)
             path = Path(directory) / f"client-{index}.json"
             path.write_text(json.dumps(config))
