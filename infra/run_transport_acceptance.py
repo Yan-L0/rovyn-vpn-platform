@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json
+import fcntl
 import os
 import secrets
+import signal
 import subprocess
 import sys
 import urllib.request
@@ -56,6 +58,8 @@ def api(
 
 
 def main() -> int:
+    if USER_FILE.exists():
+        raise RuntimeError("acceptance state already exists; inspect before retrying")
     token = read_env(APP_ENV)["REMNAWAVE_API_TOKEN"]
     created: dict[str, Any] | None = None
     try:
@@ -102,4 +106,16 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    def interrupted(signum: int, frame: Any) -> None:
+        raise InterruptedError("acceptance check interrupted")
+
+    signal.signal(signal.SIGTERM, interrupted)
+    # Manual fault tests and scheduled probes must not share disposable users.
+    with (WORK_DIRECTORY / "transport-acceptance.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            raise SystemExit(main())
+        except Exception as error:
+            # urllib exceptions may include a private subscription URL.
+            print(f"transport_acceptance=error type={type(error).__name__}")
+            raise SystemExit(1)

@@ -1,0 +1,10 @@
+[Unit]
+Description=Check all VPN transports and subscriptions every five minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=20s
+
+[Install]
+WantedBy=timers.target

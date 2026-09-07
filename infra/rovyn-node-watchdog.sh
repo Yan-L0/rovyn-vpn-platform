@@ -31,9 +31,12 @@ port_is_listening() {
 }
 
 node_is_ready() {
-  [[ "$(docker inspect --format '{{.State.Running}}' "$container_name" 2>/dev/null || true)" == "true" ]] \
+  [[ "$(timeout 5 docker inspect --format '{{.State.Running}}' "$container_name" 2>/dev/null || true)" == "true" ]] \
     && port_is_listening tcp 2222 \
     && port_is_listening tcp 61000 \
+    && port_is_listening tcp 443 \
+    && port_is_listening tcp 8443 \
+    && port_is_listening tcp 2096 \
     && port_is_listening udp 443
 }
 
@@ -50,6 +53,9 @@ require_command docker
 require_command ss
 require_command awk
 require_command flock
+require_command timeout
+require_command curl
+require_command openssl
 install -d -m 0755 "$state_directory"
 
 exec 9>"${state_directory}/lock"
@@ -60,6 +66,17 @@ fi
 
 if node_is_ready; then
   printf '0\n' >"$failure_file"
+  if ! curl --silent --show-error --fail --max-time 8 \
+    --resolve node.vpn.example:9443:127.0.0.1 \
+    https://node.vpn.example:9443/health >/dev/null; then
+    log "TLS fallback failed; inspect Nginx/certificate (node restart skipped)"
+    exit 1
+  fi
+  if ! openssl x509 -checkend 1209600 -noout \
+    -in /opt/remnanode/ssl/fullchain.pem >/dev/null; then
+    log "TLS certificate expires within 14 days; inspect certbot renewal"
+    exit 1
+  fi
   exit 0
 fi
 
@@ -85,7 +102,7 @@ fi
 
 log "restarting ${container_name} after confirmed failures"
 printf '%s\n' "$now" >"$restart_file"
-docker restart --time 20 "$container_name" >/dev/null
+timeout 35 docker restart --time 20 "$container_name" >/dev/null
 
 for _ in {1..30}; do
   if node_is_ready; then

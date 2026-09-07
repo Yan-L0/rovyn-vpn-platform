@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import re
+import signal
 import subprocess
 import tempfile
 import time
@@ -35,6 +36,29 @@ XHTTP_MODE_OVERRIDE = os.environ.get("E2E_XHTTP_MODE_OVERRIDE", "")
 TEST_TIMEOUT = int(os.environ.get("E2E_TIMEOUT", "20"))
 IDLE_SECONDS = int(os.environ.get("E2E_IDLE_SECONDS", "0"))
 SOCKS_BASE_PORT = int(os.environ.get("E2E_SOCKS_BASE_PORT", "10880"))
+OUTAGE_SECONDS = int(os.environ.get("E2E_OUTAGE_SECONDS", "0"))
+HAPP_JSON = os.environ.get("E2E_HAPP_JSON", "0") == "1"
+
+
+def fetch_happ_configs() -> list[tuple[str, dict[str, Any]]]:
+    url = json.loads(Path(E2E_USER_FILE).read_text())["subscriptionUrl"]
+    request = urllib.request.Request(url, headers={"User-Agent": "Happ/5.5.0/ios"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        configs = json.load(response)
+    if not isinstance(configs, list):
+        raise RuntimeError("expected Happ JSON config list")
+    results = []
+    for config in configs:
+        proxies = [o for o in config.get("outbounds", [])
+                   if o.get("protocol") in {"vless", "hysteria"}]
+        if len(proxies) != 1:
+            raise RuntimeError("expected one VPN outbound per Happ profile")
+        network = proxies[0].get("streamSettings", {}).get("network", "unknown")
+        # Retain the generated VPN outbound (including sockopts/finalmask).
+        # The probe must always traverse it, regardless of split-routing rules.
+        results.append((network, {"log": {"loglevel": "warning"},
+                                  "outbounds": proxies}))
+    return results
 
 
 def sanitize(message: str) -> str:
@@ -214,6 +238,10 @@ def make_config(link: str, socks_port: int) -> tuple[str, dict[str, Any]]:
 
 def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
     name = "rovyn-e2e-" + uuid.uuid4().hex[:10]
+    network_name = name + "-network"
+    network_created = False
+    if OUTAGE_SECONDS and (XRAY_BINARY or not 1 <= OUTAGE_SECONDS <= 60):
+        raise RuntimeError("outage test requires Docker and 1..60 seconds")
     mount = f"{config_path}:/tmp/client.json:ro"
     if XRAY_BINARY:
         validation_command = [
@@ -244,6 +272,7 @@ def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
         validation_command,
         text=True,
         capture_output=True,
+        timeout=30,
     )
     if validation.returncode != 0:
         message = (validation.stderr or validation.stdout).strip().splitlines()[-1]
@@ -267,6 +296,13 @@ def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
                 stderr=subprocess.STDOUT,
             )
         else:
+            network_args = ["--network", "host"]
+            if OUTAGE_SECONDS:
+                subprocess.run(["docker", "network", "create", network_name],
+                               check=True, capture_output=True, timeout=20)
+                network_created = True
+                network_args = ["--network", network_name, "--publish",
+                                f"127.0.0.1:{socks_port}:{socks_port}"]
             subprocess.run(
                 [
                     "docker",
@@ -274,8 +310,7 @@ def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
                     "--detach",
                     "--name",
                     name,
-                    "--network",
-                    "host",
+                    *network_args,
                     "--entrypoint",
                     "/usr/local/bin/xray",
                     "--volume",
@@ -288,6 +323,7 @@ def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                timeout=30,
             )
         time.sleep(2)
         def probe() -> subprocess.CompletedProcess[str]:
@@ -312,13 +348,35 @@ def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
             )
 
         result = probe()
+        recovery = ""
+        if result.returncode == 0 and result.stdout.split()[:1] == ["200"] and OUTAGE_SECONDS:
+            # Disconnect only this disposable client. Production node and
+            # application networking are never changed by fault injection.
+            subprocess.run(["docker", "network", "disconnect", network_name, name],
+                           check=True, capture_output=True, timeout=20)
+            blocked = probe()
+            if blocked.returncode == 0:
+                return False, "fault injection did not interrupt client traffic"
+            time.sleep(OUTAGE_SECONDS)
+            subprocess.run(["docker", "network", "connect", network_name, name],
+                           check=True, capture_output=True, timeout=20)
+            started = time.monotonic()
+            deadline = started + 60
+            while True:
+                result = probe()
+                if result.returncode == 0 and result.stdout.split()[:1] == ["200"]:
+                    recovery = f"; recovered_after_network_loss={time.monotonic()-started:.1f}s"
+                    break
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(2)
         if result.returncode == 0 and result.stdout.split()[:1] == ["200"] and IDLE_SECONDS:
             time.sleep(IDLE_SECONDS)
             result = probe()
         fields = result.stdout.split()
         if result.returncode == 0 and fields and fields[0] == "200":
             speed = float(fields[1]) * 8 / 1_000_000 if len(fields) > 1 else 0
-            return True, f"200; {speed:.1f} Mbit/s"
+            return True, f"200; {speed:.1f} Mbit/s{recovery}"
         if XRAY_BINARY and native_log is not None:
             native_log.flush()
             native_log.seek(0)
@@ -328,6 +386,7 @@ def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
                 ["docker", "logs", "--tail", "20", name],
                 text=True,
                 capture_output=True,
+                timeout=10,
             )
             raw_logs = logs.stderr or logs.stdout
         message = (raw_logs or result.stderr).strip().splitlines()
@@ -359,10 +418,44 @@ def run_test(config_path: Path, socks_port: int) -> tuple[bool, str]:
                 ["docker", "rm", "--force", name],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                timeout=20,
             )
+            if network_created:
+                subprocess.run(["docker", "network", "rm", network_name],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               timeout=20)
 
 
 def main() -> int:
+    if HAPP_JSON:
+        profiles = fetch_happ_configs()
+    else:
+        return run_link_tests()
+    results = []
+    with tempfile.TemporaryDirectory(prefix="e2e-", dir=WORK_DIRECTORY) as directory:
+        for index, (label, config) in enumerate(profiles):
+            port = SOCKS_BASE_PORT + index
+            config["inbounds"] = [{"listen": "0.0.0.0" if OUTAGE_SECONDS else "127.0.0.1",
+                                   "port": port, "protocol": "socks",
+                                   "settings": {"udp": True}}]
+            path = Path(directory) / f"client-{index}.json"
+            path.write_text(json.dumps(config))
+            path.chmod(0o600)
+            print(f"{label}: checking", flush=True)
+            try:
+                ok, status = run_test(path, port)
+            except subprocess.TimeoutExpired as error:
+                operation = " ".join(str(part) for part in error.cmd[:2])
+                ok, status = False, f"probe infrastructure timeout: {operation} ({error.timeout}s)"
+            except Exception as error:
+                ok, status = False, f"probe error: {type(error).__name__}"
+            results.append(ok)
+            print(f"{label}: {'PASS' if ok else 'FAIL'} ({status})", flush=True)
+    print(f"transport_tests={sum(results)}/{len(results)}")
+    return 0 if len(results) == 4 and all(results) else 1
+
+
+def run_link_tests() -> int:
     links = fetch_links()
     if LABEL_FILTER:
         links = [
@@ -379,6 +472,8 @@ def main() -> int:
         for index, link in enumerate(links):
             socks_port = SOCKS_BASE_PORT + index
             label, config = make_config(link, socks_port)
+            if OUTAGE_SECONDS:
+                config["inbounds"][0]["listen"] = "0.0.0.0"
             path = Path(directory) / f"client-{index}.json"
             path.write_text(json.dumps(config))
             path.chmod(0o600)
@@ -390,4 +485,12 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    def interrupted(signum: int, frame: Any) -> None:
+        raise InterruptedError("transport check interrupted")
+
+    signal.signal(signal.SIGTERM, interrupted)
+    try:
+        raise SystemExit(main())
+    except Exception as error:
+        print(f"transport_tests=error type={type(error).__name__}", flush=True)
+        raise SystemExit(1)
