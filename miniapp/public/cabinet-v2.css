@@ -3960,7 +3960,7 @@ body.biorg-cabinet textarea {
   }
   .shell.telegram-embedded .chrome .section-label {
     position:relative;
-    top:-16px;
+    top:0;
   }
 }
 

@@ -233,6 +233,11 @@ async def test_revoke_device_removes_hwid_and_drops_live_connections() -> None:
         ),
         (
             "POST",
+            "/api/users/22222222-2222-4222-8222-222222222222/actions/revoke",
+            None,
+        ),
+        (
+            "POST",
             "/api/hwid/devices/delete",
             {
                 "userUuid": "22222222-2222-4222-8222-222222222222",

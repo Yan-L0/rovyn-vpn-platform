@@ -163,19 +163,24 @@ class RemnawaveProvider:
         return [self._map_device(row) for row in rows if isinstance(row, dict)]
 
     async def revoke_device(self, provider_id: str, hardware_id: str) -> None:
-        # HWID removal only prevents the client from fetching the subscription
-        # again. It does not terminate tunnels which are already established on
-        # a node, so explicitly request a connection drop as the second half of
-        # the revocation. The drop selector in Remnawave 2.8.1 is user-scoped;
-        # other registered devices can reconnect with their current profile.
+        # Removing an HWID only frees its slot. A client which still knows the
+        # shared subscription URL can fetch it again and immediately register
+        # the same HWID. Rotate the shared subscription credentials first so
+        # the removed client cannot race the deletion or reconnect with its
+        # cached profile. Remnawave scopes credentials to the user rather than
+        # a single HWID, so retained devices must refresh the rotated profile.
         devices = await self.get_devices(provider_id)
         if any(device.hardware_id == hardware_id for device in devices):
+            await self._request("POST", f"/api/users/{provider_id}/actions/revoke")
             await self._request(
                 "POST",
                 "/api/hwid/devices/delete",
                 json={"userUuid": provider_id, "hwid": hardware_id},
             )
 
+        # Existing tunnels keep the old UUID until the node closes them. The
+        # drop API is user-scoped in Remnawave 2.8.1, matching the credential
+        # rotation above.
         result = await self._request(
             "POST",
             "/api/ip-control/drop-connections",
