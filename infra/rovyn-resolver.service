@@ -1,0 +1,14 @@
+[Unit]
+Description=Keep Rovyn node DNS on systemd-resolved
+Wants=network-online.target systemd-resolved.service
+After=network-online.target systemd-resolved.service
+Before=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ln -sfn /run/systemd/resolve/resolv.conf /etc/resolv.conf
+ExecStart=/usr/bin/resolvectl flush-caches
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
