@@ -85,6 +85,11 @@ function isMiniAppMode(): boolean {
     || Boolean(window.Telegram?.WebApp.initData)
 }
 
+function isBrowserAuthMode(): boolean {
+  const params = new URLSearchParams(window.location.search)
+  return window.location.pathname.startsWith('/cabinet') && params.get('login') === '1'
+}
+
 function isTelegramEmbedded(): boolean {
   const params = new URLSearchParams(window.location.search)
   return params.has('tgWebAppVersion') || Boolean(window.Telegram?.WebApp.initData)
@@ -129,16 +134,18 @@ function Brand({ compact = false }: { compact?: boolean }) {
 }
 
 export default function App() {
+  const browserAuthMode = isBrowserAuthMode()
   const miniAppMode = isMiniAppMode()
   useEffect(() => {
-    document.body.classList.toggle('cabinet-body', miniAppMode)
+    document.body.classList.toggle('cabinet-body', miniAppMode && !browserAuthMode)
     const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
     themeColor?.setAttribute('content', miniAppMode ? '#0b302d' : '#050706')
     return () => {
       document.body.classList.remove('cabinet-body')
       themeColor?.setAttribute('content', '#050706')
     }
-  }, [miniAppMode])
+  }, [browserAuthMode, miniAppMode])
+  if (browserAuthMode) return <BrowserAuth />
   return miniAppMode ? <MiniApp /> : <PublicSite />
 }
 
