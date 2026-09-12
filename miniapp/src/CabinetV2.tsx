@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   authenticate,
   createSbpOrder,
+  createTelegramLink,
   findAdminUser,
   grantAdminAccess,
   loadAdminAccess,
@@ -12,6 +13,8 @@ import {
   loadSubscriptionAccess,
   loadYearlyTraffic,
   revokeDevice,
+  requestEmailCode,
+  verifyEmailCode,
   type CheckoutOrder,
   type AdminGrantResult,
   type AdminUserLookup,
@@ -35,9 +38,11 @@ const views = new Set<CabinetView>(['home', 'plans', 'devices', 'support', 'prof
 const monthNames = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь']
 const monthLetters = ['Я', 'Ф', 'М', 'А', 'М', 'И', 'И', 'А', 'С', 'О', 'Н', 'Д']
 const visualPreview = import.meta.env.VITE_CABINET_PREVIEW === 'true'
+const telegramLaunchUrl = (import.meta.env.VITE_TELEGRAM_LAUNCH_URL as string | undefined)
+  ?? 'https://t.me/product_vpn'
 
 const previewMe: Me = {
-  user: { id: 'preview-user', telegram_id: 100000001, display_name: 'Пользователь', locale: 'ru' },
+  user: { id: 'preview-user', telegram_id: 100000001, display_name: 'Пользователь', locale: 'ru', email: 'hello@nova.vpn' },
   wallet_balance_minor: 0,
   wallet_currency: 'RUB',
   referral_code: 'ROVYN-PREVIEW',
@@ -197,6 +202,12 @@ export default function CabinetV2() {
   const [modal, setModal] = useState<ModalState>(null)
   const [modalClosing, setModalClosing] = useState(false)
   const [notifications, setNotifications] = useState(true)
+  const [emailLinkOpen, setEmailLinkOpen] = useState(false)
+  const [linkEmail, setLinkEmail] = useState('')
+  const [linkEmailCode, setLinkEmailCode] = useState('')
+  const [emailChallenge, setEmailChallenge] = useState<string | null>(null)
+  const [identityBusy, setIdentityBusy] = useState(false)
+  const [identityError, setIdentityError] = useState<string | null>(null)
   const [isOwner, setIsOwner] = useState(false)
   const [ownerChecked, setOwnerChecked] = useState(false)
   const [adminTelegramId, setAdminTelegramId] = useState('')
@@ -292,6 +303,48 @@ export default function CabinetV2() {
     }
     void boot()
   }, [browserBypass, embedded, refreshLive])
+
+  useEffect(() => {
+    const refreshIdentity = () => void loadMe().then(setMe).catch(() => undefined)
+    window.addEventListener('focus', refreshIdentity)
+    return () => window.removeEventListener('focus', refreshIdentity)
+  }, [])
+
+  async function submitEmailLink() {
+    setIdentityBusy(true)
+    setIdentityError(null)
+    try {
+      if (!emailChallenge) {
+        const result = await requestEmailCode(linkEmail)
+        setEmailChallenge(result.challenge_id)
+      } else {
+        await verifyEmailCode(emailChallenge, linkEmailCode)
+        setMe(await loadMe())
+        setEmailLinkOpen(false)
+        setEmailChallenge(null)
+        setLinkEmailCode('')
+      }
+    } catch (reason) {
+      setIdentityError(reason instanceof Error ? reason.message : 'Не удалось привязать email')
+    } finally {
+      setIdentityBusy(false)
+    }
+  }
+
+  async function openTelegramLink() {
+    setIdentityBusy(true)
+    setIdentityError(null)
+    try {
+      const result = await createTelegramLink()
+      const url = new URL(telegramLaunchUrl)
+      url.searchParams.set('startapp', result.start_param)
+      window.open(url.toString(), '_blank', 'noopener,noreferrer')
+    } catch (reason) {
+      setIdentityError(reason instanceof Error ? reason.message : 'Не удалось открыть Telegram')
+    } finally {
+      setIdentityBusy(false)
+    }
+  }
 
   useEffect(() => {
     if (!adminPlanId && plans.length) setAdminPlanId(plans[0].id)
@@ -624,7 +677,34 @@ export default function CabinetV2() {
             </div>
           </header>
           <div className="profile-grid">
-            <article className="account-card"><p className="kicker">Способы входа</p><button onClick={() => setModal({ kicker: 'Email', title: 'Скоро появится.', copy: 'Сейчас основным способом входа остаётся Telegram.' })}><Icon name="mail" /><span><small>Email</small><strong>Не подключён</strong></span><Icon name="chevron" /></button><button onClick={() => setModal({ kicker: 'Способ входа', title: 'Telegram подключён.', copy: 'Профиль защищён подписью Telegram Mini App. Email-вход будет добавлен отдельно.' })}><Icon name="telegram" /><span><small>Telegram</small><strong>{embedded ? 'Подключён' : 'Браузерная сессия'}</strong></span><b>✓</b></button></article>
+            <article className="account-card identity-card">
+              <p className="kicker">Способы входа</p>
+              <button disabled={Boolean(me.user.email)} onClick={() => { setEmailLinkOpen((value) => !value); setIdentityError(null) }}>
+                <Icon name="mail" />
+                <span><small>Email</small><strong>{me.user.email || 'Привязать почту'}</strong></span>
+                {me.user.email ? <b>✓</b> : <Icon name="chevron" />}
+              </button>
+              {emailLinkOpen && !me.user.email && (
+                <div className="identity-link-form">
+                  <p>{emailChallenge ? `Код отправлен на ${linkEmail}` : 'Добавьте email для входа без Telegram.'}</p>
+                  <div>
+                    {emailChallenge ? (
+                      <input aria-label="Код из письма" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={linkEmailCode} onChange={(event) => setLinkEmailCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" />
+                    ) : (
+                      <input aria-label="Email" type="email" autoComplete="email" value={linkEmail} onChange={(event) => setLinkEmail(event.target.value)} placeholder="name@example.com" />
+                    )}
+                    <button type="button" disabled={identityBusy || (emailChallenge ? linkEmailCode.length !== 6 : !linkEmail)} onClick={() => void submitEmailLink()}>{identityBusy ? '…' : emailChallenge ? 'Привязать' : 'Получить код'}</button>
+                  </div>
+                </div>
+              )}
+              <button disabled={Boolean(me.user.telegram_id) || identityBusy} onClick={() => void openTelegramLink()}>
+                <Icon name="telegram" />
+                <span><small>Telegram</small><strong>{me.user.telegram_id ? 'Подключён' : 'Привязать Telegram'}</strong></span>
+                {me.user.telegram_id ? <b>✓</b> : <Icon name="chevron" />}
+              </button>
+              {identityError && <p className="identity-error" role="alert">{identityError}</p>}
+              <small className="identity-note">Оба способа открывают один аккаунт, подписку и список устройств.</small>
+            </article>
             <article className="settings-card"><p className="kicker">Настройки</p><button onClick={() => setNotifications((value) => !value)}><span>Уведомления</span><small>{notifications ? 'Включены' : 'Выключены'}</small></button><button onClick={() => setModal({ kicker: 'Язык', title: 'Русский.', copy: 'Другие языки будут доступны в следующих версиях.' })}><span>Язык</span><small>Русский</small></button><button onClick={() => setModal({ kicker: 'Сессия', title: 'Закрыть кабинет?', copy: 'Для завершения сессии закройте Mini App или вкладку браузера.', action: 'Закрыть', onAction: () => window.Telegram?.WebApp.close?.() })}><span>Выйти</span><Icon name="arrow" /></button></article>
           </div>
         </section>

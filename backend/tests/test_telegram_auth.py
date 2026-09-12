@@ -47,6 +47,12 @@ class TelegramInitDataVerifierTests(unittest.TestCase):
         self.assertEqual(identity.first_name, "Ada")
         self.assertEqual(identity.username, "ada")
 
+    def test_returns_signed_start_parameter_for_account_linking(self):
+        identity = self.verifier.verify(
+            signed_init_data(start_param="link_one_time_ticket"), now=NOW + 10
+        )
+        self.assertEqual(identity.start_param, "link_one_time_ticket")
+
     def test_signature_field_is_covered_by_bot_token_hash(self):
         payload = signed_init_data().replace(
             "telegram-ed25519-signature",

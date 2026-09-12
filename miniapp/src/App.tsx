@@ -48,7 +48,9 @@ import {
   loadPlans,
   loadSubscriptionAccess,
   loadYearlyTraffic,
+  requestEmailCode,
   revokeDevice,
+  verifyEmailCode,
   type CheckoutOrder,
   type Device,
   type Me,
@@ -322,8 +324,11 @@ function RailButton({ active, icon, label, onClick }: { active: boolean; icon: R
 }
 
 function BrowserAuth() {
-  const [showTelegram, setShowTelegram] = useState(false)
   const [emailNotice, setEmailNotice] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [challengeId, setChallengeId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     document.body.classList.add('auth-body')
@@ -335,9 +340,24 @@ function BrowserAuth() {
     }
   }, [])
 
-  function requestEmail(event: FormEvent<HTMLFormElement>) {
+  async function submitEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setEmailNotice('Вход по email станет доступен после подключения почтового сервиса.')
+    setBusy(true)
+    setEmailNotice(null)
+    try {
+      if (!challengeId) {
+        const result = await requestEmailCode(email)
+        setChallengeId(result.challenge_id)
+        setEmailNotice(`Код отправлен на ${email}. Он действует 10 минут.`)
+      } else {
+        await verifyEmailCode(challengeId, code)
+        window.location.assign('/cabinet')
+      }
+    } catch (error) {
+      setEmailNotice(error instanceof Error ? error.message : 'Не удалось выполнить вход')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -349,17 +369,20 @@ function BrowserAuth() {
         <div className="auth-card-shine" />
         <h1 id="auth-title">Добро пожаловать</h1>
         <p>Войдите в NOVA с помощью</p>
-        <form onSubmit={requestEmail}>
-          <label className="sr-only" htmlFor="auth-email">Email</label>
+        <form onSubmit={submitEmail}>
+          <label className="sr-only" htmlFor="auth-email">{challengeId ? 'Код из письма' : 'Email'}</label>
           <div className="auth-email-field">
-            <input id="auth-email" type="email" autoComplete="email" placeholder="Введите email" required onChange={() => setEmailNotice(null)} />
-            <button type="submit" aria-label="Продолжить с email"><ArrowRight /></button>
+            {challengeId ? (
+              <input id="auth-email" className="auth-code-input" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" placeholder="Код из письма" value={code} required autoFocus onChange={(event) => { setCode(event.target.value.replace(/\D/g, '').slice(0, 6)); setEmailNotice(null) }} />
+            ) : (
+              <input id="auth-email" type="email" autoComplete="email" placeholder="Введите email" value={email} required onChange={(event) => { setEmail(event.target.value); setEmailNotice(null) }} />
+            )}
+            <button type="submit" disabled={busy} aria-label={challengeId ? 'Войти' : 'Продолжить с email'}>{busy ? <LoaderCircle className="auth-spinner" /> : <ArrowRight />}</button>
           </div>
         </form>
         {emailNotice && <div className="auth-notice" role="status">{emailNotice}</div>}
-        {!showTelegram ? (
-          <button className="auth-more" type="button" onClick={() => setShowTelegram(true)} aria-expanded="false">Другие способы входа</button>
-        ) : (
+        {challengeId && <button className="auth-more" type="button" disabled={busy} onClick={() => { setChallengeId(null); setCode(''); setEmailNotice(null) }}>Изменить email</button>}
+        {!challengeId && (
           <div className="auth-alternatives">
             <div className="auth-divider"><span>или</span></div>
             <a className="telegram-login" href={productUrl}>

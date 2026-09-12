@@ -3,6 +3,7 @@ export interface User {
   telegram_id?: number | null
   display_name: string
   locale: string | null
+  email?: string | null
 }
 
 export interface Subscription {
@@ -162,6 +163,30 @@ export async function authenticate(initData: string): Promise<void> {
     body: JSON.stringify({ init_data: initData }),
   })
   saveCsrfToken(response.csrf_token)
+}
+
+export async function requestEmailCode(email: string): Promise<{ challenge_id: string; expires_in: number }> {
+  return request('/api/v1/auth/email/request', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+}
+
+export async function verifyEmailCode(challengeId: string, code: string): Promise<void> {
+  const response = await request<AuthResponse>('/api/v1/auth/email/verify', {
+    method: 'POST',
+    body: JSON.stringify({ challenge_id: challengeId, code }),
+  })
+  saveCsrfToken(response.csrf_token)
+}
+
+export async function createTelegramLink(): Promise<{ start_param: string; expires_in: number }> {
+  const token = csrfToken()
+  if (!token) return Promise.reject(new Error('Сессия устарела. Войдите ещё раз.'))
+  return request('/api/v1/auth/telegram/link', {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': token },
+  })
 }
 
 export function loadMe(): Promise<Me> {

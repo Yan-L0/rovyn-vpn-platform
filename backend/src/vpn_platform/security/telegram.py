@@ -24,6 +24,7 @@ class TelegramIdentity:
     photo_url: str | None
     auth_date: int
     query_id: str | None
+    start_param: str | None = None
 
 
 class TelegramInitDataVerifier:
@@ -89,6 +90,7 @@ class TelegramInitDataVerifier:
             photo_url=self._optional_string(user, "photo_url"),
             auth_date=auth_date,
             query_id=data.get("query_id"),
+            start_param=data.get("start_param"),
         )
 
     @staticmethod

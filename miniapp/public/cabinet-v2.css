@@ -3812,6 +3812,57 @@ body.biorg-cabinet textarea {
   .admin-grant-user { animation:none; }
 }
 
+/* v26 — one identity, two optional login methods */
+.identity-card > button:disabled { opacity:1; cursor:default; }
+.identity-card > button:not(:disabled) { border-color:rgba(198,211,154,.2); }
+.identity-card > button:not(:disabled) > svg:last-child { color:var(--moss); }
+.identity-link-form {
+  margin:0 5px 4px;
+  padding:16px;
+  border:1px solid rgba(190,222,210,.1);
+  border-radius:24px;
+  background:rgba(2,22,19,.34);
+  animation:identity-reveal 220ms var(--ease) both;
+}
+.identity-link-form > p,
+.identity-note,
+.identity-error { margin:0; color:var(--muted); font-size:12px; line-height:1.45; }
+.identity-link-form > div { display:grid; grid-template-columns:1fr auto; gap:9px; margin-top:11px; }
+.identity-link-form input {
+  min-width:0;
+  height:46px;
+  padding:0 14px;
+  border:1px solid rgba(190,222,210,.14);
+  border-radius:15px;
+  outline:0;
+  color:var(--white);
+  background:rgba(0,10,9,.5);
+  font:inherit;
+}
+.identity-link-form input:focus { border-color:var(--moss); box-shadow:0 0 0 3px rgba(198,211,154,.08); }
+.account-card .identity-link-form button {
+  width:auto;
+  min-height:46px;
+  padding:0 18px;
+  border:0;
+  border-radius:15px;
+  color:#10231d;
+  background:var(--moss);
+  font-weight:700;
+  white-space:nowrap;
+}
+.account-card .identity-link-form button:disabled { opacity:.5; }
+.identity-error { margin:2px 14px; color:#f0a79e; }
+.identity-note { margin:5px 14px 2px; display:block; }
+@keyframes identity-reveal { from { opacity:0; transform:translateY(-7px); } }
+
+@media (max-width:640px) {
+  .identity-link-form { padding:14px; border-radius:20px; }
+  .identity-link-form > div { grid-template-columns:1fr; }
+  .account-card .identity-link-form button { width:100%; justify-content:center; }
+  .identity-note { font-size:11px; }
+}
+
 /* v25 — balanced access rhythm, unclipped identities and consistent modal actions */
 .profile-title {
   width:100%;

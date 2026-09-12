@@ -185,6 +185,10 @@ body.auth-body { background: #080d0b; }
 .auth-email-field input { min-width: 0; height: 100%; flex: 1; border: 0; outline: 0; color: #eef7f4; background: transparent; font-size: 13px; }
 .auth-email-field input::placeholder { color: #66716d; }
 .auth-email-field button { width: 43px; height: 43px; flex: 0 0 43px; border: 1px solid rgba(138,240,222,.12); border-radius: 12px; display: grid; place-items: center; color: #07100d; background: linear-gradient(145deg, #65c9b8, #438c80); box-shadow: 0 8px 20px rgba(37,152,132,.16); }
+.auth-email-field button:disabled { opacity: .65; cursor: wait; }
+.auth-code-input { letter-spacing: .32em; font-variant-numeric: tabular-nums; }
+.auth-spinner { animation: auth-spin .8s linear infinite; }
+@keyframes auth-spin { to { transform: rotate(360deg); } }
 .auth-email-field button svg { width: 17px; }
 .auth-notice { margin: 11px 4px 0; color: #9ba6a2; font-size: 10px; line-height: 1.45; }
 .auth-more { margin: 22px auto 0; padding: 7px 6px; border: 0; color: #64d8c5; background: transparent; font-size: 12px; font-weight: 700; }

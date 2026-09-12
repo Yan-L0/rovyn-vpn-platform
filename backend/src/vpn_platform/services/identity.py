@@ -28,6 +28,7 @@ class IdentityService:
         *,
         request_id: str | None,
         ip_address: str | None,
+        link_user_id: uuid.UUID | None = None,
     ) -> User:
         # The transaction-scoped advisory lock prevents duplicate account creation
         # when Telegram launches the Mini App twice in parallel.
@@ -45,13 +46,16 @@ class IdentityService:
         user: User
 
         if account is None:
-            user = User(
-                display_name=display_name,
-                locale=identity.language_code,
-                referral_code=secrets.token_urlsafe(9).replace("-", "").replace("_", "")[:12],
-            )
-            db.add(user)
-            await db.flush()
+            user = await db.get(User, link_user_id, with_for_update=True) if link_user_id else None
+            if user is None:
+                user = User(
+                    display_name=display_name,
+                    locale=identity.language_code,
+                    referral_code=secrets.token_urlsafe(9).replace("-", "").replace("_", "")[:12],
+                )
+                db.add(user)
+                await db.flush()
+                db.add(Wallet(user_id=user.id, currency="RUB"))
             account = TelegramAccount(
                 user_id=user.id,
                 telegram_id=identity.telegram_id,
@@ -61,9 +65,11 @@ class IdentityService:
                 photo_url=identity.photo_url,
                 last_authenticated_at=now,
             )
-            db.add_all([account, Wallet(user_id=user.id, currency="RUB")])
-            action = "identity.telegram.created"
+            db.add(account)
+            action = "identity.telegram.linked" if link_user_id else "identity.telegram.created"
         else:
+            if link_user_id is not None and account.user_id != link_user_id:
+                raise ValueError("Telegram уже привязан к другому аккаунту")
             existing_user = await db.get(User, account.user_id, with_for_update=True)
             if existing_user is None:
                 raise RuntimeError("Telegram account points to a missing user")

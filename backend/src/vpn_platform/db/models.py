@@ -114,6 +114,24 @@ class TelegramAccount(Base):
     __table_args__ = (Index("ix_telegram_accounts_user_id", "user_id"),)
 
 
+class EmailAccount(Base):
+    __tablename__ = "email_accounts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
+    linked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    last_authenticated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (Index("ix_email_accounts_user_id", "user_id"),)
+
+
 class WebSession(Base):
     __tablename__ = "web_sessions"
 

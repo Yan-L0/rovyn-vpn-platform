@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     TELEGRAM_AUTH_DEV_BYPASS: bool = False
     BOT_OWNER_TELEGRAM_IDS: str = ""
 
+    RESEND_API_KEY: SecretStr = SecretStr("")
+    EMAIL_FROM: str = "NOVA VPN <login@auth.yanlo.biz>"
+    EMAIL_AUTH_CODE_TTL_SECONDS: Annotated[int, Field(ge=300, le=1800)] = 600
+
     VPN_PROVIDER: ProviderName = ProviderName.REMNAWAVE
     REMNAWAVE_BASE_URL: str = ""
     REMNAWAVE_API_TOKEN: SecretStr = SecretStr("")

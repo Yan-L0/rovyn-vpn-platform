@@ -10,11 +10,31 @@ class TelegramAuthRequest(BaseModel):
     init_data: str = Field(default="", max_length=16_384)
 
 
+class EmailCodeRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class EmailCodeRequestResponse(BaseModel):
+    challenge_id: str
+    expires_in: int
+
+
+class EmailCodeVerifyRequest(BaseModel):
+    challenge_id: str = Field(min_length=20, max_length=200)
+    code: str = Field(pattern=r"^\d{6}$")
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     telegram_id: int | None = None
     display_name: str
     locale: str | None
+    email: str | None = None
+
+
+class TelegramLinkResponse(BaseModel):
+    start_param: str
+    expires_in: int
 
 
 class AuthResponse(BaseModel):
