@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 
-PANEL_URL = "https://panel.vpn.example"
 APP_ENV = Path("/opt/vpn-platform/.env.production")
 BACKUP_DIRECTORY = Path("/opt/remnawave/backups")
 
@@ -30,11 +29,15 @@ def read_env(path: Path) -> dict[str, str]:
 
 
 def api(
-    token: str, method: str, path: str, payload: dict[str, Any] | None = None
+    base_url: str,
+    token: str,
+    method: str,
+    path: str,
+    payload: dict[str, Any] | None = None,
 ) -> Any:
     data = None if payload is None else json.dumps(payload).encode()
     request = urllib.request.Request(
-        PANEL_URL + path,
+        base_url.rstrip("/") + path,
         data=data,
         method=method,
         headers={
@@ -133,8 +136,10 @@ def routing_document() -> dict[str, Any]:
 
 
 def main() -> None:
-    token = read_env(APP_ENV)["REMNAWAVE_API_TOKEN"]
-    settings = api(token, "GET", "/api/subscription-settings")
+    environment = read_env(APP_ENV)
+    base_url = environment["REMNAWAVE_BASE_URL"]
+    token = environment["REMNAWAVE_API_TOKEN"]
+    settings = api(base_url, token, "GET", "/api/subscription-settings")
 
     BACKUP_DIRECTORY.mkdir(mode=0o700, parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -150,6 +155,7 @@ def main() -> None:
     headers["routing"] = routing_header
 
     api(
+        base_url,
         token,
         "PATCH",
         "/api/subscription-settings",

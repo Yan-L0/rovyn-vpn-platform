@@ -11,7 +11,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from manage_transport_test_user import APP_ENV, PANEL_URL, SQUAD_UUID, api, read_env
+from manage_transport_test_user import APP_ENV, SQUAD_UUID, api, read_env
 
 
 def decode_b64(value: bytes | str) -> bytes:

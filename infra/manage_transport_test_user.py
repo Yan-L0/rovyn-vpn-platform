@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 
-PANEL_URL = "https://panel.vpn.example"
 SQUAD_UUID = "8e319819-2110-44ab-b6f5-e76138233ed5"
 APP_ENV = Path("/opt/vpn-platform/.env.production")
 USER_FILE = Path("/opt/remnawave/native-acceptance-user.json")
@@ -34,9 +33,10 @@ def read_env(path: Path) -> dict[str, str]:
 def api(
     token: str, method: str, path: str, payload: dict[str, Any] | None = None
 ) -> Any:
+    base_url = read_env(APP_ENV)["REMNAWAVE_BASE_URL"].rstrip("/")
     data = None if payload is None else json.dumps(payload).encode()
     request = urllib.request.Request(
-        PANEL_URL + path,
+        base_url + path,
         data=data,
         method=method,
         headers={
