@@ -126,24 +126,6 @@ def profile_config(secrets: dict[str, str]) -> dict[str, Any]:
                 "sniffing": sniffing,
             },
             {
-                "tag": "VLESS-REALITY-GRPC",
-                "listen": "0.0.0.0",
-                "port": 8443,
-                "protocol": "vless",
-                "settings": {"clients": [], "decryption": "none", "flow": ""},
-                "streamSettings": {
-                    "network": "grpc",
-                    "security": "tls",
-                    "tlsSettings": tls_settings(["h2"]),
-                    "grpcSettings": {
-                        "serviceName": secrets["GRPC_SERVICE"],
-                        "multiMode": False,
-                    },
-                    "sockopt": stable_tcp_sockopt(),
-                },
-                "sniffing": sniffing,
-            },
-            {
                 "tag": "VLESS-REALITY-XHTTP",
                 "listen": "0.0.0.0",
                 "port": 2096,
@@ -265,7 +247,6 @@ def main() -> int:
     by_tag = {item["tag"]: item for item in inbounds}
     expected_tags = [
         "VLESS-REALITY-RAW",
-        "VLESS-REALITY-GRPC",
         "VLESS-REALITY-XHTTP",
         "HYSTERIA2-TLS",
     ]
@@ -300,21 +281,6 @@ def main() -> int:
             "port": 443,
             "sni": REALITY_SNI,
             "alpn": "http/1.1",
-            "fingerprint": "firefox",
-            "xhttpExtraParams": None,
-            "sockoptParams": {
-                "tcpKeepAliveIdle": 45,
-                "tcpKeepAliveInterval": 15,
-                "tcpUserTimeout": 30000,
-            },
-            "serverDescription": None,
-        },
-        {
-            "tag": "VLESS-REALITY-GRPC",
-            "remark": "⚡ Резервный gRPC TLS",
-            "port": 8443,
-            "sni": NODE_ADDRESS,
-            "alpn": "h2",
             "fingerprint": "firefox",
             "xhttpExtraParams": None,
             "sockoptParams": {
@@ -401,6 +367,10 @@ def main() -> int:
             api(token, "PATCH", "/api/hosts/", {"uuid": existing["uuid"], **payload})
         else:
             api(token, "POST", "/api/hosts/", payload)
+
+    deprecated_grpc_host = existing_by_tag.get("ROVYN_VLESS_REALITY_GRPC")
+    if deprecated_grpc_host:
+        api(token, "DELETE", f"/api/hosts/{deprecated_grpc_host['uuid']}")
 
     print(f"profile={PROFILE_NAME} uuid={profile_uuid} action={action}")
     for tag in expected_tags:

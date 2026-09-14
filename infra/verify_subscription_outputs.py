@@ -70,8 +70,8 @@ def main() -> int:
             for line in decode_b64(body).decode().splitlines()
             if line.strip()
         ]
-        if len(links) != 4:
-            raise RuntimeError(f"expected 4 links, got {len(links)}")
+        if len(links) != 3:
+            raise RuntimeError(f"expected 3 links, got {len(links)}")
 
         transports: dict[str, tuple[str, str, dict[str, list[str]]]] = {}
         for link in links:
@@ -87,7 +87,6 @@ def main() -> int:
 
         raw_key = "tcp" if "tcp" in transports else "raw"
         raw = transports[raw_key]
-        grpc = transports["grpc"]
         xhttp = transports["xhttp"]
         hysteria = transports["hysteria2"]
         if raw[0] != "vless" or single(raw[2], "security") != "reality":
@@ -97,18 +96,12 @@ def main() -> int:
             raise RuntimeError("RAW REALITY SNI is incorrect")
         if single(raw[2], "fp") != "firefox":
             raise RuntimeError("RAW REALITY fingerprint is not firefox")
-        if grpc[0] != "vless" or single(grpc[2], "security") != "tls":
-            raise RuntimeError("gRPC is not VLESS TLS")
-        if single(grpc[2], "fp") != "firefox":
-            raise RuntimeError("gRPC fingerprint is not firefox")
         if xhttp[0] != "vless" or single(xhttp[2], "security") != "tls":
             raise RuntimeError("XHTTP is not VLESS TLS")
         if single(xhttp[2], "fp") != "firefox":
             raise RuntimeError("XHTTP fingerprint is not firefox")
         if single(xhttp[2], "mode") != "stream-up":
             raise RuntimeError("XHTTP mode is not stream-up")
-        if not single(grpc[2], "serviceName"):
-            raise RuntimeError("gRPC serviceName is missing")
         if not single(xhttp[2], "path") or not single(xhttp[2], "mode"):
             raise RuntimeError("XHTTP path or mode is missing")
 
@@ -144,7 +137,7 @@ def main() -> int:
             for outbound in config.get("outbounds", []):
                 stream = outbound.get("streamSettings", {})
                 network = stream.get("network")
-                if network not in {"raw", "tcp", "grpc", "xhttp"}:
+                if network not in {"raw", "tcp", "xhttp"}:
                     continue
                 sockopt = stream.get("sockopt", {})
                 if sockopt.get("tcpKeepAliveIdle") != 45:
@@ -156,7 +149,7 @@ def main() -> int:
                 if sockopt.get("tcpUserTimeout") != 30000:
                     raise RuntimeError(f"{network} TCP user timeout is incorrect")
                 recovered_networks.add("raw" if network == "tcp" else network)
-        missing_networks = {"raw", "grpc", "xhttp"} - recovered_networks
+        missing_networks = {"raw", "xhttp"} - recovered_networks
         if missing_networks:
             raise RuntimeError(
                 "Happ TCP recovery settings are missing for: "
@@ -173,13 +166,12 @@ def main() -> int:
         if happ_routing != routing_header:
             raise RuntimeError("Happ routing header differs from v2RayTun")
 
-        print("subscription_links=4/4")
+        print("subscription_links=3/3")
         print("subscription_refresh_happ=1h")
         print("subscription_refresh_v2raytun=1h")
         print("raw_reality=valid")
-        print("grpc_tls=valid")
         print("xhttp_tls=valid")
-        print("tcp_recovery_happ=3/3")
+        print("tcp_recovery_happ=2/2")
         print("hysteria2_bbr_and_recovery=valid")
         print("routing_v2raytun=6_rules")
         print("routing_happ=6_rules")

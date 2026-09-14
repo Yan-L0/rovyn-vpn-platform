@@ -452,7 +452,7 @@ def main() -> int:
             results.append(ok)
             print(f"{label}: {'PASS' if ok else 'FAIL'} ({status})", flush=True)
     print(f"transport_tests={sum(results)}/{len(results)}")
-    return 0 if len(results) == 4 and all(results) else 1
+    return 0 if len(results) == 3 and all(results) else 1
 
 
 def run_link_tests() -> int:
