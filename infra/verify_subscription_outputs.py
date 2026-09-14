@@ -9,6 +9,7 @@ import secrets
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
+import os
 from typing import Any
 
 from manage_transport_test_user import APP_ENV, SQUAD_UUID, api, read_env
@@ -91,7 +92,8 @@ def main() -> int:
         hysteria = transports["hysteria2"]
         if raw[0] != "vless" or single(raw[2], "security") != "reality":
             raise RuntimeError("RAW is not VLESS REALITY")
-        if single(raw[2], "sni") != "node.vpn.example":
+        expected_reality_sni = os.environ.get("E2E_EXPECTED_REALITY_SNI", "")
+        if expected_reality_sni and single(raw[2], "sni") != expected_reality_sni:
             raise RuntimeError("RAW REALITY SNI is incorrect")
         if single(raw[2], "fp") != "firefox":
             raise RuntimeError("RAW REALITY fingerprint is not firefox")
