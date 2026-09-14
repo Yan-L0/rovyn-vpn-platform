@@ -147,8 +147,8 @@ export default function App() {
       themeColor?.setAttribute('content', '#050706')
     }
   }, [browserAuthMode, miniAppMode])
-  if (browserAuthMode) return <BrowserAuth />
-  return miniAppMode ? <MiniApp /> : <PublicSite />
+  if (browserAuthMode || !miniAppMode) return <BrowserAuth />
+  return <MiniApp />
 }
 
 function PublicSite() {
