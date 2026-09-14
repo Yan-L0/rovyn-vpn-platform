@@ -243,9 +243,30 @@ export default function CabinetV2() {
   useEffect(() => {
     document.body.classList.add('biorg-cabinet')
     window.Telegram?.WebApp.disableVerticalSwipes?.()
+
+    const updateViewportInsets = () => {
+      const viewport = window.visualViewport
+      const viewportHeight = viewport?.height ?? window.innerHeight
+      const keyboardOpen = viewportHeight < window.innerHeight * 0.72
+      const coveredBottom = keyboardOpen || !viewport
+        ? 0
+        : Math.max(0, Math.min(96, window.innerHeight - viewport.height - viewport.offsetTop))
+      document.documentElement.style.setProperty('--browser-ui-bottom', `${coveredBottom}px`)
+      document.documentElement.classList.toggle('cabinet-keyboard-open', keyboardOpen)
+    }
+
+    updateViewportInsets()
+    window.visualViewport?.addEventListener('resize', updateViewportInsets)
+    window.visualViewport?.addEventListener('scroll', updateViewportInsets)
+    window.addEventListener('orientationchange', updateViewportInsets)
     return () => {
       document.body.classList.remove('biorg-cabinet', 'modal-open')
       window.Telegram?.WebApp.enableVerticalSwipes?.()
+      window.visualViewport?.removeEventListener('resize', updateViewportInsets)
+      window.visualViewport?.removeEventListener('scroll', updateViewportInsets)
+      window.removeEventListener('orientationchange', updateViewportInsets)
+      document.documentElement.style.removeProperty('--browser-ui-bottom')
+      document.documentElement.classList.remove('cabinet-keyboard-open')
     }
   }, [])
 
