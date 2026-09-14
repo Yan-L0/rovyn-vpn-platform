@@ -5,18 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="NOVA VPN — единая подписка для Happ и v2RayTun с управлением в Telegram." />
-    <meta name="theme-color" content="#050706" />
+    <meta name="theme-color" content="#13766f" />
     <title>NOVA VPN — интернет без лишних ограничений</title>
     <script>
       if (location.pathname.startsWith('/cabinet')) {
         document.documentElement.classList.add('cabinet-boot')
-        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b302d')
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#13766f')
         document.addEventListener('DOMContentLoaded', () => {
           if (document.getElementById('cabinet-styles')) return
           const cabinetStyles = document.createElement('link')
           cabinetStyles.id = 'cabinet-styles'
           cabinetStyles.rel = 'stylesheet'
-          cabinetStyles.href = '/cabinet-v2.css?v=27'
+          cabinetStyles.href = '/cabinet-v2.css?v=28'
           cabinetStyles.onload = () => document.documentElement.classList.add('cabinet-styles-ready')
           cabinetStyles.onerror = () => document.documentElement.classList.add('cabinet-styles-error')
           document.head.append(cabinetStyles)

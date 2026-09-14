@@ -20,6 +20,7 @@ interface TelegramWebApp {
   enableVerticalSwipes?(): void
   setHeaderColor(color: string): void
   setBackgroundColor(color: string): void
+  setBottomBarColor?(color: string): void
   openLink(url: string): void
   HapticFeedback?: {
     impactOccurred(style: 'light' | 'medium' | 'heavy'): void

@@ -4104,3 +4104,45 @@ body.biorg-cabinet {
   #root,
   .shell { min-height:-webkit-fill-available; }
 }
+
+/* v28 — one continuous mobile canvas behind Safari and Telegram chrome */
+@media (max-width:640px) {
+  html,
+  body,
+  #root {
+    background-color:#13766f;
+  }
+  body.biorg-cabinet {
+    background:
+      radial-gradient(ellipse 92% 42% at 5% 7%,rgba(67,183,169,.5),transparent 72%),
+      radial-gradient(ellipse 90% 48% at 98% 94%,rgba(28,137,125,.42),transparent 74%),
+      linear-gradient(150deg,#197e76 0%,#0f5d58 45%,#14776f 100%);
+    background-color:#13766f;
+  }
+  body.biorg-cabinet::before,
+  body.biorg-cabinet::after,
+  .shell::before,
+  .shell::after {
+    display:none;
+    animation:none;
+  }
+  .shell,
+  .shell.browser-embedded,
+  .shell.telegram-embedded {
+    background:transparent;
+    box-shadow:none;
+  }
+  .shell.telegram-embedded .chrome {
+    position:sticky;
+    z-index:90;
+    top:0;
+    min-height:calc(54px + env(safe-area-inset-top,0px));
+    height:calc(54px + env(safe-area-inset-top,0px));
+    margin-right:-13px;
+    margin-left:-13px;
+    padding-top:env(safe-area-inset-top,0px);
+    background:rgba(19,118,111,.94);
+    -webkit-backdrop-filter:blur(18px);
+    backdrop-filter:blur(18px);
+  }
+}

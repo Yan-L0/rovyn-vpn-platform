@@ -9,7 +9,7 @@ const cabinetMode = window.location.pathname.startsWith('/cabinet')
   || bootParams.get('app') === '1'
   || bootParams.has('tgWebAppVersion')
   || Boolean(telegram?.initData)
-const cabinetBootColor = cabinetMode ? '#0b302d' : '#050807'
+const cabinetBootColor = cabinetMode ? '#13766f' : '#050807'
 
 if (cabinetMode) {
   document.documentElement.classList.add('cabinet-boot')
@@ -21,7 +21,7 @@ if (cabinetMode) {
       cabinetStyles = document.createElement('link')
       cabinetStyles.id = 'cabinet-styles'
       cabinetStyles.rel = 'stylesheet'
-      cabinetStyles.href = '/cabinet-v2.css?v=27'
+      cabinetStyles.href = '/cabinet-v2.css?v=28'
       document.head.append(cabinetStyles)
     }
 
@@ -48,6 +48,7 @@ if (telegram?.requestFullscreen && !telegram.isFullscreen) {
 }
 telegram?.setHeaderColor(cabinetBootColor)
 telegram?.setBackgroundColor(cabinetBootColor)
+telegram?.setBottomBarColor?.(cabinetBootColor)
 telegram?.enableClosingConfirmation()
 
 createRoot(document.getElementById('root')!).render(
