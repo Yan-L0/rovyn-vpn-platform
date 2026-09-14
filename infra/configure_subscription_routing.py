@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure deterministic Happ/v2RayTun split routing with a private backup."""
+"""Configure resilient Happ/v2RayTun subscriptions with a private backup."""
 
 from __future__ import annotations
 
@@ -155,10 +155,15 @@ def main() -> None:
         "/api/subscription-settings",
         {
             "uuid": settings["uuid"],
+            # Happ honors this response header on iOS, Android/TV and desktop.
+            # One hour is the shortest supported interval and missed updates are
+            # retried by Happ the next time the application starts.
+            "profileUpdateInterval": 1,
             "happRouting": routing_header,
             "customResponseHeaders": headers,
         },
     )
+    print("profile_update_interval_hours=1")
     print(f"routing_configured=true header_bytes={len(routing_header)}")
     print(f"backup_created={backup_path}")
 

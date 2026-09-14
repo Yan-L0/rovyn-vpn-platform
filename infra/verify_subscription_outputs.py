@@ -34,6 +34,13 @@ def single(query: dict[str, list[str]], key: str) -> str:
     return values[0] if values else ""
 
 
+def header(headers: dict[str, str], name: str) -> str:
+    return next(
+        (value for key, value in headers.items() if key.lower() == name.lower()),
+        "",
+    )
+
+
 def main() -> int:
     token = read_env(APP_ENV)["REMNAWAVE_API_TOKEN"]
     created: dict[str, Any] | None = None
@@ -55,6 +62,8 @@ def main() -> int:
             },
         )
         body, headers = fetch(created["subscriptionUrl"], "v2rayTun/4.0")
+        if header(headers, "profile-update-interval") != "1":
+            raise RuntimeError("v2RayTun subscription refresh interval is not 1 hour")
         links = [
             line
             for line in decode_b64(body).decode().splitlines()
@@ -123,6 +132,8 @@ def main() -> int:
         happ_body, happ_headers = fetch(
             created["subscriptionUrl"], "Happ/5.5.0/ios"
         )
+        if header(happ_headers, "profile-update-interval") != "1":
+            raise RuntimeError("Happ subscription refresh interval is not 1 hour")
         happ_configs = json.loads(happ_body)
         if not isinstance(happ_configs, list):
             raise RuntimeError("Happ subscription is not a JSON config list")
@@ -161,6 +172,8 @@ def main() -> int:
             raise RuntimeError("Happ routing header differs from v2RayTun")
 
         print("subscription_links=4/4")
+        print("subscription_refresh_happ=1h")
+        print("subscription_refresh_v2raytun=1h")
         print("raw_reality=valid")
         print("grpc_tls=valid")
         print("xhttp_tls=valid")
