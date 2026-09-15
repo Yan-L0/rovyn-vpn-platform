@@ -35,7 +35,6 @@ node_is_ready() {
     && port_is_listening tcp 2222 \
     && port_is_listening tcp 61000 \
     && port_is_listening tcp 443 \
-    && port_is_listening tcp 8443 \
     && port_is_listening tcp 2096 \
     && port_is_listening udp 443
 }
