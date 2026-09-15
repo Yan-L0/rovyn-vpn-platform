@@ -5,6 +5,7 @@ Wants=docker.service
 
 [Service]
 Type=oneshot
+EnvironmentFile=-/etc/default/rovyn-node-watchdog
 ExecStart=/usr/local/sbin/rovyn-node-watchdog
 TimeoutStartSec=150
 Nice=10

@@ -7,6 +7,7 @@ readonly failure_file="${state_directory}/failures"
 readonly restart_file="${state_directory}/last-restart"
 readonly failure_threshold=3
 readonly restart_cooldown_seconds=300
+readonly fallback_hostname="${ROVYN_NODE_FALLBACK_HOSTNAME:-node.vpn.example}"
 
 log() {
   printf '%s %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"
@@ -66,8 +67,8 @@ fi
 if node_is_ready; then
   printf '0\n' >"$failure_file"
   if ! curl --silent --show-error --fail --max-time 8 \
-    --resolve node.vpn.example:9443:127.0.0.1 \
-    https://node.vpn.example:9443/health >/dev/null; then
+    --resolve "${fallback_hostname}:9443:127.0.0.1" \
+    "https://${fallback_hostname}:9443/health" >/dev/null; then
     log "TLS fallback failed; inspect Nginx/certificate (node restart skipped)"
     exit 1
   fi
