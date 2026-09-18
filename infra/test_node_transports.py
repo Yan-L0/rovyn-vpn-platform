@@ -50,7 +50,8 @@ def fetch_happ_configs() -> list[tuple[str, dict[str, Any]]]:
     results = []
     for config in configs:
         proxies = [o for o in config.get("outbounds", [])
-                   if o.get("protocol") in {"vless", "hysteria"}]
+                   if o.get("protocol") in {"vless", "hysteria"}
+                   and o.get("tag") == "proxy"]
         if len(proxies) != 1:
             raise RuntimeError("expected one VPN outbound per Happ profile")
         network = proxies[0].get("streamSettings", {}).get("network", "unknown")
