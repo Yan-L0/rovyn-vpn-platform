@@ -47,6 +47,9 @@ class PaymentApplication:
 class OrderService:
     """Owns order/payment state transitions; transaction ownership stays with the caller."""
 
+    def __init__(self, *, personal_devices: bool = False):
+        self._personal_devices = personal_devices
+
     async def create_order(
         self,
         db: AsyncSession,
@@ -251,8 +254,7 @@ class OrderService:
             "currency": plan.currency,
         }
 
-    @staticmethod
-    def _new_subscription(order: Order, now: datetime) -> Subscription:
+    def _new_subscription(self, order: Order, now: datetime) -> Subscription:
         snapshot = order.plan_snapshot
         try:
             duration_days = int(snapshot["duration_days"])
@@ -271,6 +273,7 @@ class OrderService:
             starts_at=now,
             expires_at=now + timedelta(days=duration_days),
             traffic_limit_bytes=traffic_limit,
+            isolated_devices=self._personal_devices and traffic_limit == 0,
             device_limit=device_limit,
             server_groups=groups,
             public_token_digest=hashlib.sha256(token.encode()).digest(),

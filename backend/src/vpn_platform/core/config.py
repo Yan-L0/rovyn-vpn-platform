@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     REMNAWAVE_BASE_URL: str = ""
     REMNAWAVE_API_TOKEN: SecretStr = SecretStr("")
     REMNAWAVE_DEFAULT_SQUAD_UUIDS: str = ""
+    REMNAWAVE_DEVICE_EXTERNAL_SQUAD_UUID: str = ""
+    REMNAWAVE_DEVICE_SESSION_REVOCATION_ENABLED: bool = False
     USAGE_SYNC_INTERVAL_SECONDS: Annotated[int, Field(ge=300, le=86_400)] = 21_600
 
     # V2 intentionally supports one payment rail only. YooKassa is configured

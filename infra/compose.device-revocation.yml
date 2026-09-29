@@ -1,0 +1,6 @@
+# Opt-in overlay. Requires a verified custom core; never use before testing.
+services:
+  remnanode:
+    cap_add: !reset []
+    volumes:
+      - /opt/remnanode/bin/xray-device-revoke:/usr/local/bin/xray:ro

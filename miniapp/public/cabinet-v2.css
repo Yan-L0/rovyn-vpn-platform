@@ -4146,3 +4146,6 @@ body.biorg-cabinet {
     backdrop-filter:none;
   }
 }
+.device-input { display: grid; gap: 10px; margin-top: 20px; text-align: left; }
+.device-input input { width: 100%; box-sizing: border-box; padding: 15px; border: 1px solid #738b80; border-radius: 16px; background: #edf1e7; color: #09241f; font: inherit; font-size: 16px; }
+.action-sheet button:disabled { opacity: .55; cursor: wait; }

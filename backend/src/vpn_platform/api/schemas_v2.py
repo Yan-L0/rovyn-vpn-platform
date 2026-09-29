@@ -19,6 +19,7 @@ class SubscriptionAccessResponse(BaseModel):
     provider_status: str
     plan_name: str
     subscription_url: str
+    isolated_devices: bool = False
     starts_at: datetime
     expires_at: datetime
     device_limit: int = Field(ge=0)
@@ -30,6 +31,8 @@ class DeviceResponse(BaseModel):
     platform: str | None
     model: str | None
     last_seen_at: datetime | None
+    managed: bool = False
+    status: str = "active"
 
 
 class MonthlyUsageResponse(BaseModel):

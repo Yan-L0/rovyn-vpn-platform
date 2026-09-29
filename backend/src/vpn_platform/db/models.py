@@ -213,6 +213,9 @@ class Subscription(Base):
     traffic_limit_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     device_limit: Mapped[int] = mapped_column(Integer, nullable=False)
     server_groups: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    isolated_devices: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     public_token_digest: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -454,6 +457,23 @@ class PromoActivation(Base):
     )
 
     __table_args__ = (UniqueConstraint("promocode_id", "user_id", name="uq_promo_user"),)
+
+
+class VpnDevice(Base):
+    __tablename__ = "vpn_devices"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    subscription_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("subscriptions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
+    provider_user_id: Mapped[str | None] = mapped_column(String(128), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class DeviceCache(Base):

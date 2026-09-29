@@ -1,0 +1,165 @@
+diff --git a/common/protocol/user.go b/common/protocol/user.go
+index 75e8e65..50d05ba 100644
+--- a/common/protocol/user.go
++++ b/common/protocol/user.go
+@@ -1,6 +1,7 @@
+ package protocol
+ 
+ import (
++	"sync"
+ 	"github.com/xtls/xray-core/common/errors"
+ 	"github.com/xtls/xray-core/common/serial"
+ )
+@@ -52,4 +53,19 @@ type MemoryUser struct {
+ 	Account Account
+ 	Email   string
+ 	Level   uint32
++	revokeInit sync.Once
++	revokeOnce sync.Once
++	revoked chan struct{}
++}
++
++// Revoked is scoped to this credential generation, never to a shared client IP.
++func (u *MemoryUser) Revoked() <-chan struct{} {
++	u.revokeInit.Do(func() { u.revoked = make(chan struct{}) })
++	return u.revoked
++}
++
++// Revoke terminates authenticated sessions when the validator removes this user.
++func (u *MemoryUser) Revoke() {
++	u.Revoked()
++	u.revokeOnce.Do(func() { close(u.revoked) })
+ }
+diff --git a/proxy/hysteria/account/config.go b/proxy/hysteria/account/config.go
+index 0e50dcc..e7982ae 100644
+--- a/proxy/hysteria/account/config.go
++++ b/proxy/hysteria/account/config.go
+@@ -76,6 +76,7 @@ func (v *Validator) Del(email string) error {
+ 	for key, user := range v.users {
+ 		if user.Email == email {
+ 			delete(v.users, key)
++			user.Revoke()
+ 			break
+ 		}
+ 	}
+diff --git a/proxy/vless/encoding/encoding_test.go b/proxy/vless/encoding/encoding_test.go
+index ae55886..a9917f0 100644
+--- a/proxy/vless/encoding/encoding_test.go
++++ b/proxy/vless/encoding/encoding_test.go
+@@ -4,6 +4,7 @@ import (
+ 	"testing"
+ 
+ 	"github.com/google/go-cmp/cmp"
++	"github.com/google/go-cmp/cmp/cmpopts"
+ 	"github.com/xtls/xray-core/common"
+ 	"github.com/xtls/xray-core/common/buf"
+ 	"github.com/xtls/xray-core/common/net"
+@@ -48,7 +49,7 @@ func TestRequestSerialization(t *testing.T) {
+ 	_, actualRequest, actualAddons, _, err := DecodeRequestHeader(false, nil, &buffer, Validator)
+ 	common.Must(err)
+ 
+-	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{})); r != "" {
++	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{}), cmpopts.IgnoreUnexported(protocol.MemoryUser{})); r != "" {
+ 		t.Error(r)
+ 	}
+ 
+@@ -120,7 +121,7 @@ func TestMuxRequest(t *testing.T) {
+ 	_, actualRequest, actualAddons, _, err := DecodeRequestHeader(false, nil, &buffer, Validator)
+ 	common.Must(err)
+ 
+-	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{})); r != "" {
++	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{}), cmpopts.IgnoreUnexported(protocol.MemoryUser{})); r != "" {
+ 		t.Error(r)
+ 	}
+ 
+diff --git a/proxy/vless/inbound/inbound.go b/proxy/vless/inbound/inbound.go
+index 02dc947..c7a5f19 100644
+--- a/proxy/vless/inbound/inbound.go
++++ b/proxy/vless/inbound/inbound.go
+@@ -535,6 +535,22 @@ func (h *Handler) Process(ctx context.Context, network net.Network, connection s
+ 	}
+ 	inbound.Name = "vless"
+ 	inbound.User = request.User
++	// Closing this authenticated stream also interrupts Vision splice and mux.
++	// A separate stream from the same IP belongs to a different MemoryUser.
++	sessionDone := make(chan struct{})
++	defer close(sessionDone)
++	select {
++	case <-request.User.Revoked():
++		return errors.New("user revoked")
++	default:
++	}
++	go func() {
++		select {
++		case <-request.User.Revoked():
++			connection.Close()
++		case <-sessionDone:
++		}
++	}()
+ 	inbound.VlessRoute = net.PortFromBytes(userSentID[6:8])
+ 
+ 	account := request.User.Account.(*vless.MemoryAccount)
+diff --git a/proxy/vless/validator.go b/proxy/vless/validator.go
+index 35a4469..9667b76 100644
+--- a/proxy/vless/validator.go
++++ b/proxy/vless/validator.go
+@@ -55,6 +55,7 @@ func (v *MemoryValidator) Del(e string) error {
+ 	}
+ 	v.email.Delete(le)
+ 	v.users.Delete(ProcessUUID(u.(*protocol.MemoryUser).Account.(*MemoryAccount).ID.UUID()))
++	u.(*protocol.MemoryUser).Revoke()
+ 	return nil
+ }
+ 
+diff --git a/proxy/vmess/encoding/encoding_test.go b/proxy/vmess/encoding/encoding_test.go
+index ddae29e..240b7d0 100644
+--- a/proxy/vmess/encoding/encoding_test.go
++++ b/proxy/vmess/encoding/encoding_test.go
+@@ -5,6 +5,7 @@ import (
+ 	"testing"
+ 
+ 	"github.com/google/go-cmp/cmp"
++	"github.com/google/go-cmp/cmp/cmpopts"
+ 	"github.com/xtls/xray-core/common"
+ 	"github.com/xtls/xray-core/common/buf"
+ 	"github.com/xtls/xray-core/common/net"
+@@ -58,7 +59,7 @@ func TestRequestSerialization(t *testing.T) {
+ 	actualRequest, err := server.DecodeRequestHeader(buffer, false)
+ 	common.Must(err)
+ 
+-	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{})); r != "" {
++	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{}), cmpopts.IgnoreUnexported(protocol.MemoryUser{})); r != "" {
+ 		t.Error(r)
+ 	}
+ 
+@@ -147,7 +148,7 @@ func TestMuxRequest(t *testing.T) {
+ 	actualRequest, err := server.DecodeRequestHeader(buffer, false)
+ 	common.Must(err)
+ 
+-	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{})); r != "" {
++	if r := cmp.Diff(actualRequest, expectedRequest, cmp.AllowUnexported(protocol.ID{}), cmpopts.IgnoreUnexported(protocol.MemoryUser{})); r != "" {
+ 		t.Error(r)
+ 	}
+ }
+diff --git a/transport/internet/hysteria/hub.go b/transport/internet/hysteria/hub.go
+index 992680d..dbe522b 100644
+--- a/transport/internet/hysteria/hub.go
++++ b/transport/internet/hysteria/hub.go
+@@ -183,6 +183,17 @@ func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+ 		if user != nil || ok {
+ 			h.auth = true
+ 			h.user = user
++			if user != nil {
++				// Revoke the entire authenticated QUIC session, including existing
++				// datagrams and any future streams using cached authentication.
++				go func() {
++					select {
++					case <-user.Revoked():
++						h.conn.CloseWithError(closeErrCodeOK, "user revoked")
++					case <-h.conn.Context().Done():
++					}
++				}()
++			}
+ 
+ 			switch h.quicParams.Congestion {
+ 			case "reno":

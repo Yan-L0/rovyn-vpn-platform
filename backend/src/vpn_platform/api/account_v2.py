@@ -36,6 +36,7 @@ from vpn_platform.db.models import (
 )
 from vpn_platform.domain.vpn_provider import ProviderError, VPNProvider
 from vpn_platform.providers.remnawave import RemnawaveNotFound
+from vpn_platform.services.device_accounts import device_rows, subscription_history
 from vpn_platform.services.usage_sync import store_usage_points
 
 router = APIRouter(prefix="/api/v2", tags=["account-v2"])
@@ -110,6 +111,26 @@ async def subscription_access(
 
     subscription, plan, account = row
     provider = _provider(request)
+    if subscription.isolated_devices:
+        used = (await provider.get_usage(account.provider_user_id)).used_bytes
+        for device in await device_rows(db, subscription):
+            if device.provider_user_id:
+                used += (await provider.get_usage(device.provider_user_id)).used_bytes
+        response.headers["Cache-Control"] = "no-store"
+        return SubscriptionAccessResponse(
+            subscription_id=subscription.id,
+            status=subscription.status.value,
+            provider_status=subscription.status.value,
+            plan_name=plan.name,
+            subscription_url="",
+            isolated_devices=True,
+            starts_at=subscription.starts_at,
+            expires_at=subscription.expires_at,
+            device_limit=subscription.device_limit,
+            usage=SubscriptionUsageResponse(
+                used_bytes=used, traffic_limit_bytes=subscription.traffic_limit_bytes
+            ),
+        )
     try:
         provider_user = await provider.get_subscription_info(account.provider_user_id)
         usage = await provider.get_usage(account.provider_user_id)
@@ -161,9 +182,22 @@ async def devices(
     if row is None:
         return []
     _, account = row
+    if row[0].isolated_devices:
+        return [
+            DeviceResponse(
+                hardware_id=str(d.id),
+                platform="Персональное подключение",
+                model=d.name,
+                last_seen_at=None,
+                managed=True,
+                status=d.status,
+            )
+            for d in await device_rows(db, row[0])
+            if d.status != "revoked"
+        ]
     try:
         items = await _provider(request).get_devices(account.provider_user_id)
-    except RemnawaveNotFound as error:
+    except RemnawaveNotFound:
         await _expire_local_subscription(db, row[0])
         return []
     except ProviderError as error:
@@ -211,8 +245,11 @@ async def yearly_traffic(
     source_status = "stored"
     if selected_year == now.year:
         try:
-            points = await _provider(request).get_usage_history(
-                account.provider_user_id,
+            points = await subscription_history(
+                db,
+                _provider(request),
+                subscription,
+                account,
                 now.date() - timedelta(days=13),
                 now.date(),
             )
@@ -283,6 +320,8 @@ async def delete_device(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="device not found")
     _, account = row
+    if row[0].isolated_devices:
+        raise HTTPException(409, "Use the personal device revocation endpoint")
     try:
         await _provider(request).revoke_device(account.provider_user_id, hardware_id)
     except ProviderError as error:

@@ -43,6 +43,7 @@ export interface AuthResponse {
 }
 
 export interface SubscriptionAccess {
+  isolated_devices?: boolean
   subscription_id: string
   status: string
   provider_status: string
@@ -75,6 +76,8 @@ export interface YearlyUsage {
 }
 
 export interface Device {
+  managed?: boolean
+  status?: string
   hardware_id: string
   platform: string | null
   model: string | null
@@ -117,6 +120,18 @@ export interface AdminGrantResult {
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:8080'
 const CSRF_STORAGE_KEY = 'nova.csrf-token'
+
+function deviceMutation<T>(path: string, method: string, body?: object): Promise<T> {
+  return request<T>(`/api/v2/device-accounts${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  })
+}
+export const migrateDevices = () => deviceMutation<void>('/migrate', 'POST')
+export const createDevice = (name: string, requestId: string) => deviceMutation<{ id: string; subscription_url: string }>('', 'POST', { name, request_id: requestId })
+export const loadDeviceLink = (id: string) => deviceMutation<{ subscription_url: string }>(`/${encodeURIComponent(id)}/link`, 'POST')
+export const revokeManagedDevice = (id: string) => deviceMutation<void>(`/${encodeURIComponent(id)}`, 'DELETE')
 
 function saveCsrfToken(token: string): void {
   try {

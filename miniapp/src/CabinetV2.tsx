@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   authenticate,
+  createDevice,
+  migrateDevices,
+  loadDeviceLink,
+  revokeManagedDevice,
   createSbpOrder,
   createTelegramLink,
   findAdminUser,
@@ -31,7 +35,11 @@ type ModalState = null | {
   title: string
   copy: string
   action?: string
-  onAction?: () => void | Promise<void>
+  onAction?: (value?: string) => void | Promise<void>
+  inputLabel?: string
+  link?: string
+  secondaryAction?: string
+  onSecondary?: () => void | Promise<void>
 }
 
 const views = new Set<CabinetView>(['home', 'plans', 'devices', 'support', 'profile', 'admin'])
@@ -551,9 +559,58 @@ export default function CabinetV2() {
   }
 
   async function copyAccess() {
+    if (access?.isolated_devices) { navigate('devices'); return }
     if (!access?.subscription_url) return
     await navigator.clipboard.writeText(access.subscription_url)
     setModal({ kicker: 'Подключение', title: 'Ссылка скопирована.', copy: 'Откройте Happ или v2RayTun и импортируйте ссылку из буфера обмена.' })
+  }
+
+  function showDeviceLink(link: string) {
+    setModal({ kicker: 'Личная ссылка устройства', title: 'Подключение готово.',
+      copy: 'Импортируйте ссылку в Happ на одном устройстве. Для другого устройства создайте отдельное подключение.',
+      link, action: 'Скопировать ссылку', onAction: async () => {
+        await navigator.clipboard.writeText(link)
+        setModal((current) => current ? { ...current, copy: 'Ссылка скопирована. Откройте Happ и импортируйте её из буфера обмена.' } : null)
+      } })
+  }
+
+  function addPersonalDevice() {
+    const requestId = window.crypto.randomUUID()
+    setModal({ kicker: 'Новое устройство', title: 'Как его назвать?',
+      copy: 'Например, «Мой iPhone» или «Телевизор». Устройство занимает одно место в подписке.',
+      inputLabel: 'Название устройства', action: 'Создать подключение', onAction: async (name) => {
+        if (!name?.trim()) throw new Error('Введите название устройства')
+        if (visualPreview) { setModal(null); return }
+        const result = await createDevice(name.trim(), requestId)
+        await refreshLive()
+        showDeviceLink(result.subscription_url)
+      } })
+  }
+
+  function offerDeviceMigration() {
+    setModal({ kicker: 'Персональные подключения', title: 'Перейти на отдельные ключи?',
+      copy: 'Старая общая ссылка перестанет работать на всех устройствах. Добавьте каждое устройство здесь и импортируйте его новую ссылку в Happ. Тариф и срок сохранятся.',
+      action: 'Перейти и отключить старую ссылку', onAction: async () => {
+        if (visualPreview) { addPersonalDevice(); return }
+        await migrateDevices()
+        await refreshLive()
+        addPersonalDevice()
+      } })
+  }
+
+  function openDevice(device: Device) {
+    if (!device.managed) { offerDeviceMigration(); return }
+    setModal({ kicker: 'Устройство', title: shortDeviceName(device),
+      copy: device.status === 'revoking' ? 'Отключение ещё выполняется. Можно повторить запрос.' : 'Отзыв отключит это устройство. Другие устройства сохранят доступ.',
+      action: device.status === 'active' ? 'Показать ссылку' : device.status === 'pending' ? 'Продолжить создание' : undefined,
+      onAction: async () => {
+        const result = device.status === 'pending'
+          ? await createDevice(device.model || 'Устройство', device.hardware_id)
+          : await loadDeviceLink(device.hardware_id)
+        await refreshLive()
+        showDeviceLink(result.subscription_url)
+      },
+      secondaryAction: 'Отозвать устройство', onSecondary: () => removeDevice(device) })
   }
 
   function closePayment() {
@@ -582,10 +639,11 @@ export default function CabinetV2() {
       return
     }
     try {
-      await revokeDevice(device.hardware_id)
+      if (device.managed) await revokeManagedDevice(device.hardware_id)
+      else await revokeDevice(device.hardware_id)
       setDevices((current) => current.filter((item) => item.hardware_id !== device.hardware_id))
       await refreshLive()
-      setModal({ kicker: 'Устройства', title: 'Доступ отозван.', copy: 'Устройство удалено, старые VPN-подключения отключены. На остальных устройствах обновите подписку по новой персональной ссылке.' })
+      setModal({ kicker: 'Устройства', title: 'Доступ отозван.', copy: 'Ключ устройства отключён. Другие устройства сохраняют доступ. Для повторного подключения создайте новую личную ссылку.' })
     } catch (reason) {
       setModal({ kicker: 'Устройства', title: 'Не получилось удалить.', copy: reason instanceof Error ? reason.message : 'Повторите попытку позднее.' })
     }
@@ -672,8 +730,9 @@ export default function CabinetV2() {
         <section className={`screen ${view === 'devices' ? 'is-visible' : ''}`}>
           <header className="page-title compact"><p className="kicker">Подключения</p><div className="device-title-row"><h2>Устройства</h2></div></header>
           <div className="timeline">
-            {devices.map((device, index) => <button className={`timeline-row ${index === 0 ? 'active' : ''}`} key={device.hardware_id} onClick={() => setModal({ kicker: 'Устройство', title: shortDeviceName(device), copy: device.last_seen_at ? `Последняя активность: ${formatDate(device.last_seen_at)}. Удаление отзовёт старую ссылку и отключит все текущие VPN-соединения. Остальные устройства нужно будет обновить по новой ссылке.` : 'Удаление отзовёт старую ссылку и отключит все текущие VPN-соединения. Остальные устройства нужно будет обновить по новой ссылке.', action: 'Отозвать устройство', onAction: () => removeDevice(device) })}><span className="timeline-node" /><small>{index === 0 ? 'Сейчас' : device.last_seen_at ? new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(device.last_seen_at)) : 'Недавно'}</small><div><span className="device-art"><Icon name={deviceIcon(device)} /></span><p><strong>{shortDeviceName(device)}</strong><small>{device.platform || 'Платформа не определена'}</small></p>{index === 0 ? <b>Активно</b> : <Icon name="chevron" />}</div></button>)}
-            {showDeviceSlot && <button className="timeline-row empty" key="free-slot" onClick={(event) => { event.currentTarget.blur(); setModal(access?.subscription_url ? { kicker: 'Свободное место', title: 'Подключите устройство.', copy: 'Скопируйте персональную ссылку и импортируйте её в совместимое приложение.', action: 'Скопировать ссылку', onAction: copyAccess } : { kicker: 'Подключение', title: 'Сначала выберите тариф.', copy: 'После выдачи доступа здесь появится персональная ссылка и место для первого устройства.', action: 'Выбрать тариф', onAction: () => { setModal(null); navigate('plans') } }) }}><span className="timeline-node" /><small>{active ? 'Свободно' : 'Нет тарифа'}</small><div><span className="device-art"><Icon name="plus" /></span><p><strong>Добавить устройство</strong><small>{active ? `Доступно ещё ${availableDeviceSlots}` : 'Сначала выберите тариф'}</small></p><Icon name="chevron" /></div></button>}
+            {devices.map((device) => <button className="timeline-row" key={device.hardware_id} onClick={() => openDevice(device)}><span className="timeline-node" /><small>{device.status === 'pending' ? 'Подготовка' : device.status === 'revoking' ? 'Отключение' : device.status === 'limited' ? 'Приостановлено' : 'Добавлено'}</small><div><span className="device-art"><Icon name={deviceIcon(device)} /></span><p><strong>{shortDeviceName(device)}</strong><small>{device.platform || 'Устройство'}</small></p><Icon name="chevron" /></div></button>)}
+            {active && !access?.isolated_devices && <button className="modal-secondary" onClick={offerDeviceMigration}>Перейти на персональные подключения</button>}
+            {showDeviceSlot && <button className="timeline-row empty" onClick={() => { if (!active) navigate('plans'); else if (access?.isolated_devices) addPersonalDevice(); else offerDeviceMigration() }}><span className="timeline-node" /><small>{active ? 'Свободно' : 'Нет тарифа'}</small><div><span className="device-art"><Icon name="plus" /></span><p><strong>Добавить устройство</strong><small>{active ? `Доступно ещё ${availableDeviceSlots}` : 'Сначала выберите тариф'}</small></p><Icon name="chevron" /></div></button>}
           </div>
         </section>
 
@@ -787,9 +846,41 @@ function PaymentModal({ plan, payment, busy, error, close, closing, submit, refo
 }
 
 function ActionModal({ modal, close, closing, refocus }: { modal: NonNullable<ModalState>; close: () => void; closing: boolean; refocus: React.MutableRefObject<HTMLElement | null> }) {
-  async function run() {
-    if (modal.onAction) await modal.onAction()
-    else close()
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const running = useRef(false)
+  async function run(secondary = false) {
+    if (running.current) return
+    running.current = true
+    setBusy(true)
+    setError('')
+    try {
+      if (secondary) await modal.onSecondary?.()
+      else if (modal.onAction) await modal.onAction(value)
+      else close()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Не удалось выполнить действие')
+    } finally {
+      running.current = false
+      setBusy(false)
+    }
   }
-  return <div className={`action-layer is-open ${closing ? 'is-closing' : ''}`}><button className="action-scrim" type="button" onClick={close} aria-label="Закрыть окно" /><section className="action-sheet modal-surface" role="dialog" aria-modal="true" aria-labelledby="action-title" tabIndex={-1} ref={(node) => { refocus.current = node }}><div className="modal-grabber" aria-hidden="true"><i /></div><div className="modal-toolbar"><span className="modal-brand">N</span><span className="modal-context">Сервис NOVA</span><button className="modal-close" onClick={close} aria-label="Закрыть окно"><Icon name="close" /></button></div><div className="action-sheet__content"><p className="kicker">{modal.kicker}</p><h2 id="action-title">{modal.title}</h2><p>{modal.copy}</p></div><div className="modal-actions">{modal.action && <button className="action-primary" onClick={() => void run()}>{modal.action} <Icon name="arrow" /></button>}<button className="modal-secondary" onClick={close}>Закрыть</button></div></section></div>
+  return <div className={`action-layer is-open ${closing ? 'is-closing' : ''}`}>
+    <button className="action-scrim" type="button" disabled={busy} onClick={close} aria-label="Закрыть окно" />
+    <section className="action-sheet modal-surface" role="dialog" aria-modal="true" aria-labelledby="action-title" tabIndex={-1} ref={(node) => { refocus.current = node }}>
+      <div className="modal-grabber" aria-hidden="true"><i /></div>
+      <div className="modal-toolbar"><span className="modal-brand">N</span><span className="modal-context">Сервис NOVA</span><button className="modal-close" disabled={busy} onClick={close} aria-label="Закрыть окно"><Icon name="close" /></button></div>
+      <div className="action-sheet__content"><p className="kicker">{modal.kicker}</p><h2 id="action-title">{modal.title}</h2><p>{modal.copy}</p>
+        {modal.inputLabel && <label className="device-input"><span>{modal.inputLabel}</span><input value={value} maxLength={128} disabled={busy} onChange={(event) => setValue(event.target.value)} placeholder="Мой телефон" /></label>}
+        {modal.link && <label className="device-input"><span>Ссылка для Happ</span><input readOnly value={modal.link} onFocus={(event) => event.currentTarget.select()} /></label>}
+        {error && <p className="modal-error" role="alert">{error}</p>}
+      </div>
+      <div className="modal-actions">
+        {modal.action && <button className="action-primary" disabled={busy} onClick={() => void run()}>{busy ? 'Выполняем…' : modal.action} <Icon name="arrow" /></button>}
+        {modal.secondaryAction && <button className="modal-secondary" disabled={busy} onClick={() => void run(true)}>{modal.secondaryAction}</button>}
+        <button className="modal-secondary" disabled={busy} onClick={close}>Закрыть</button>
+      </div>
+    </section>
+  </div>
 }

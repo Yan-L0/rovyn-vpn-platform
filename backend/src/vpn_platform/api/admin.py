@@ -27,6 +27,7 @@ from vpn_platform.db.models import (
     Wallet,
 )
 from vpn_platform.domain.vpn_provider import AccountStatus, ProviderError, ProvisionUser
+from vpn_platform.services.device_accounts import sync_device_access
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -67,18 +68,16 @@ class AdminGrantResponse(BaseModel):
 
 
 async def _owner_telegram_id(db: DatabaseSession, auth: AuthenticatedUser) -> int | None:
-    return await db.scalar(
-        select(TelegramAccount.telegram_id)
-        .where(TelegramAccount.user_id == auth.user.id)
-        .limit(1)
+    value = await db.scalar(
+        select(TelegramAccount.telegram_id).where(TelegramAccount.user_id == auth.user.id).limit(1)
     )
+    return int(value) if value is not None else None
 
 
 async def _is_owner(request: Request, db: DatabaseSession, auth: AuthenticatedUser) -> bool:
     telegram_id = await _owner_telegram_id(db, auth)
     return (
-        telegram_id is not None
-        and telegram_id in request.app.state.settings.bot_owner_telegram_ids
+        telegram_id is not None and telegram_id in request.app.state.settings.bot_owner_telegram_ids
     )
 
 
@@ -186,6 +185,7 @@ async def grant_access(
     account = await db.scalar(
         select(TelegramAccount).where(TelegramAccount.telegram_id == payload.telegram_id).limit(1)
     )
+    user: User | None
     if account is None:
         user = User(
             display_name=f"Пользователь {payload.telegram_id}",
@@ -228,6 +228,10 @@ async def grant_access(
             starts_at=starts_at,
             expires_at=starts_at + timedelta(days=plan.duration_days),
             traffic_limit_bytes=plan.traffic_limit_bytes,
+            isolated_devices=(
+                plan.traffic_limit_bytes == 0
+                and request.app.state.settings.REMNAWAVE_DEVICE_SESSION_REVOCATION_ENABLED
+            ),
             device_limit=payload.device_limit or plan.device_limit,
             server_groups=list(plan.server_groups),
             public_token_digest=hashlib.sha256(secrets.token_bytes(32)).digest(),
@@ -268,7 +272,7 @@ async def grant_access(
             )
         else:
             remote = await provider.update_user(vpn_account.provider_user_id, desired)
-        if remote.status is not AccountStatus.ACTIVE:
+        if remote.status is not AccountStatus.ACTIVE and not subscription.isolated_devices:
             await provider.enable_user(remote.provider_id)
     except ProviderError as error:
         await db.rollback()
@@ -307,6 +311,8 @@ async def grant_access(
         vpn_account.observed_state = observed_state
         vpn_account.reconciled_at = now
     subscription.status = SubscriptionStatus.ACTIVE
+    await db.flush()
+    await sync_device_access(db, provider, subscription)
     db.add(
         AuditLog(
             actor_type="owner",
@@ -331,5 +337,5 @@ async def grant_access(
         display_name=user.display_name,
         status=subscription.status.value,
         expires_at=subscription.expires_at,
-        subscription_url=remote.subscription_url,
+        subscription_url=None if subscription.isolated_devices else remote.subscription_url,
     )

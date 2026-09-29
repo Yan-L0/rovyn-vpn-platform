@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from vpn_platform.db.models import Subscription, SubscriptionStatus, VpnAccount, VpnUsageDaily
 from vpn_platform.domain.vpn_provider import ProviderError, UsagePoint, VPNProvider
+from vpn_platform.services.device_accounts import subscription_history, sync_device_access
 
 logger = logging.getLogger(__name__)
 
@@ -52,22 +53,44 @@ async def sync_all_usage(
     async with session_factory() as db:
         accounts = (
             await db.execute(
-                select(Subscription.user_id, VpnAccount.provider_user_id)
+                select(Subscription.id, VpnAccount.id)
                 .join(VpnAccount, VpnAccount.subscription_id == Subscription.id)
-                .where(Subscription.status == SubscriptionStatus.ACTIVE)
+                .where(
+                    Subscription.status.in_(
+                        [
+                            SubscriptionStatus.ACTIVE,
+                            SubscriptionStatus.SUSPENDED,
+                            SubscriptionStatus.EXPIRED,
+                        ]
+                    )
+                )
+                .order_by(Subscription.expires_at.desc())
             )
         ).all()
-        for user_id, provider_user_id in accounts:
+        seen_users: set[uuid.UUID] = set()
+        for subscription_id, account_id in accounts:
+            subscription = await db.get(Subscription, subscription_id, with_for_update=True)
+            account = await db.get(VpnAccount, account_id)
+            if subscription is None or account is None:
+                continue
+            store = subscription.user_id not in seen_users
+            seen_users.add(subscription.user_id)
             try:
-                points = await provider.get_usage_history(provider_user_id, start, current_date)
+                await sync_device_access(db, provider, subscription)
+                if store:
+                    points = await subscription_history(
+                        db, provider, subscription, account, start, current_date
+                    )
+                    await store_usage_points(db, subscription.user_id, points)
             except ProviderError:
                 logger.warning(
                     "Remnawave usage sync failed for provider user",
-                    extra={"provider_user_id": provider_user_id},
+                    extra={"provider_user_id": account.provider_user_id},
                     exc_info=True,
                 )
+                await db.rollback()
                 continue
-            await store_usage_points(db, user_id, points)
+            await db.commit()
         await db.commit()
 
 

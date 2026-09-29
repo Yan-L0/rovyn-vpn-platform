@@ -78,10 +78,20 @@ class RemnawaveProvider:
         await self._request("DELETE", f"/api/users/{provider_id}")
 
     async def enable_user(self, provider_id: str) -> None:
+        if (await self._get_user(provider_id)).get("status") == "ACTIVE":
+            return
         await self._request("POST", f"/api/users/{provider_id}/actions/enable")
 
     async def disable_user(self, provider_id: str) -> None:
+        if (await self._get_user(provider_id)).get("status") == "DISABLED":
+            return
         await self._request("POST", f"/api/users/{provider_id}/actions/disable")
+
+    async def drop_connections(self, provider_id: str) -> None:
+        # The patched core closes sessions on RemoveUser. The panel's IP-control
+        # endpoint kills unrelated clients behind the same NAT and must not be used.
+        if (await self._get_user(provider_id)).get("status") != "DISABLED":
+            raise ProviderError("Device has not been disabled")
 
     async def set_expiry(self, provider_id: str, expire_at: datetime) -> None:
         await self._patch(provider_id, {"expireAt": expire_at.isoformat()})
@@ -277,6 +287,8 @@ class RemnawaveProvider:
         }
         if user.telegram_id is not None:
             payload["telegramId"] = user.telegram_id
+        if user.external_squad_id:
+            payload["externalSquadUuid"] = user.external_squad_id
         return payload
 
     @staticmethod

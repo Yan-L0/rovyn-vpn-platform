@@ -43,7 +43,7 @@ class IdentityService:
             item for item in (identity.first_name, identity.last_name) if item
         ).strip()
         now = datetime.now(UTC)
-        user: User
+        user: User | None
 
         if account is None:
             user = await db.get(User, link_user_id, with_for_update=True) if link_user_id else None

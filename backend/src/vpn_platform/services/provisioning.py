@@ -16,6 +16,7 @@ from vpn_platform.db.models import (
     SubscriptionStatus,
     TelegramAccount,
     VpnAccount,
+    VpnDevice,
 )
 from vpn_platform.domain.vpn_provider import (
     AccountStatus,
@@ -23,6 +24,7 @@ from vpn_platform.domain.vpn_provider import (
     ProvisionUser,
     VPNProvider,
 )
+from vpn_platform.services.device_accounts import sync_device_access
 
 
 @dataclass(frozen=True)
@@ -94,6 +96,34 @@ class ProvisioningService:
             .where(TelegramAccount.user_id == order.user_id)
             .limit(1)
         )
+        if account is None and subscription.isolated_devices:
+            previous = await db.scalar(
+                select(Subscription)
+                .where(
+                    Subscription.user_id == subscription.user_id,
+                    Subscription.id != subscription.id,
+                    Subscription.status == SubscriptionStatus.ACTIVE,
+                )
+                .order_by(Subscription.expires_at.desc())
+                .limit(1)
+                .with_for_update()
+            )
+            if previous is not None:
+                # Existing shared-link users opt in explicitly from their cabinet.
+                subscription.isolated_devices = previous.isolated_devices
+            if previous is not None and previous.isolated_devices:
+                purchased_duration = subscription.expires_at - subscription.starts_at
+                subscription.expires_at = (
+                    max(previous.expires_at, current_time) + purchased_duration
+                )
+                for device in (
+                    await db.scalars(
+                        select(VpnDevice).where(VpnDevice.subscription_id == previous.id)
+                    )
+                ).all():
+                    device.subscription_id = subscription.id
+                previous.status = SubscriptionStatus.EXPIRED
+                await db.flush()
         desired = ProvisionUser(
             external_key=str(order.id),
             username=f"vpn_{subscription.id.hex}",
@@ -111,7 +141,7 @@ class ProvisioningService:
                 )
             else:
                 remote = await self._provider.update_user(account.provider_user_id, desired)
-            if remote.status is not AccountStatus.ACTIVE:
+            if remote.status is not AccountStatus.ACTIVE and not subscription.isolated_devices:
                 await self._provider.enable_user(remote.provider_id)
         except ProviderError as error:
             event.attempts += 1
@@ -157,6 +187,15 @@ class ProvisioningService:
             account.reconciled_at = current_time
 
         subscription.status = SubscriptionStatus.ACTIVE
+        await db.flush()
+        try:
+            await sync_device_access(db, self._provider, subscription)
+        except ProviderError as error:
+            event.attempts += 1
+            event.last_error = str(error)[:2000]
+            event.available_at = current_time + self._retry_delay(event.attempts)
+            await db.flush()
+            return ProvisioningResult(False, order, subscription, account, error=str(error))
         order.status = OrderStatus.FULFILLED
         event.processed_at = current_time
         event.last_error = None

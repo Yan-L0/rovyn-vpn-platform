@@ -200,7 +200,9 @@ async def yookassa_webhook(
                     provider="yookassa",
                     order_id=order_id,
                 )
-                await OrderService().apply_verified_payment(db, verified, now=now)
+                await OrderService(
+                    personal_devices=request.app.state.settings.REMNAWAVE_DEVICE_SESSION_REVOCATION_ENABLED
+                ).apply_verified_payment(db, verified, now=now)
                 webhook.status = "payment_applied"
             elif remote.status is PaymentState.CANCELED:
                 payment = await db.scalar(
