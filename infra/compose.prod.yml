@@ -15,6 +15,9 @@ x-app-service: &app-service
   env_file:
     - path: ../.env.production
       required: true
+    # Enabled only after the node passes credential-scoped revocation tests.
+    - path: ../.env.devices
+      required: false
   environment: *app-environment
   restart: unless-stopped
   networks:
