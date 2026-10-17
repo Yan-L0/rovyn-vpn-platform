@@ -21,7 +21,7 @@ if (cabinetMode) {
       cabinetStyles = document.createElement('link')
       cabinetStyles.id = 'cabinet-styles'
       cabinetStyles.rel = 'stylesheet'
-      cabinetStyles.href = '/cabinet-v2.css?v=30'
+      cabinetStyles.href = '/cabinet-v2.css?v=31'
       document.head.append(cabinetStyles)
     }
 

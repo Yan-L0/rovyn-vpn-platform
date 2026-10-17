@@ -4105,33 +4105,42 @@ body.biorg-cabinet {
   .shell { min-height:-webkit-fill-available; }
 }
 
-/* v28 — one continuous mobile canvas behind Safari and Telegram chrome */
-@media (max-width:640px) {
-  html,
-  body,
-  #root {
-    background-color:#13766f;
-  }
-  body.biorg-cabinet {
+/* One viewport-sized canvas at every width, including desktop Telegram.
+   Document-height gradients and transformed shell layers expose seams on scroll. */
+html.cabinet-boot { background:#13766f; }
+body.biorg-cabinet {
+  isolation:isolate;
+  background:#13766f;
+}
+body.biorg-cabinet::before {
+    content:"";
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    pointer-events:none;
     background:
       radial-gradient(ellipse 92% 42% at 5% 7%,rgba(67,183,169,.5),transparent 72%),
       radial-gradient(ellipse 90% 48% at 98% 94%,rgba(28,137,125,.42),transparent 74%),
       linear-gradient(150deg,#197e76 0%,#0f5d58 45%,#14776f 100%);
     background-color:#13766f;
-  }
-  body.biorg-cabinet::before,
-  body.biorg-cabinet::after,
-  .shell::before,
-  .shell::after {
+    opacity:1;
+    transform:none;
+    animation:none;
+    will-change:auto;
+}
+body.biorg-cabinet #root { background:transparent; }
+body.biorg-cabinet::after,
+body.biorg-cabinet .shell::before,
+body.biorg-cabinet .shell::after {
     display:none;
     animation:none;
-  }
-  .shell,
-  .shell.browser-embedded,
-  .shell.telegram-embedded {
+}
+body.biorg-cabinet .shell {
     background:transparent;
     box-shadow:none;
-  }
+}
+@media (max-width:640px) {
   .shell.telegram-embedded .chrome {
     position:relative;
     z-index:2;
