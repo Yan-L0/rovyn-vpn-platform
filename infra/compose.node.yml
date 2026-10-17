@@ -31,10 +31,6 @@ services:
     container_name: remnanode
     hostname: remnanode
     network_mode: host
-    cap_add:
-      # Required by Remnawave's drop-connections action to terminate
-      # already established client tunnels after an HWID is revoked.
-      - NET_ADMIN
     env_file:
       - path: .env
         required: true
@@ -44,6 +40,14 @@ services:
       reality-fallback:
         condition: service_healthy
     volumes:
+      # Required for credential-scoped revocation. Fail instead of silently
+      # starting a stock core when the verified binary has not been installed.
+      - type: bind
+        source: /opt/remnanode/bin/xray-device-revoke
+        target: /usr/local/bin/xray
+        read_only: true
+        bind:
+          create_host_path: false
       - /var/log/remnanode:/var/log/remnanode
       - /opt/remnanode/ssl:/var/lib/remnawave/configs/xray/ssl:ro
     restart: unless-stopped

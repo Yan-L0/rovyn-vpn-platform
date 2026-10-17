@@ -257,19 +257,9 @@ async def yearly_traffic(
             await db.commit()
             source_status = "fresh"
         except RemnawaveNotFound:
-            await _expire_local_subscription(db, subscription)
-            response.headers["Cache-Control"] = "no-store"
-            return YearlyUsageResponse(
-                year=selected_year,
-                current_month=now.month,
-                current_month_used_bytes=0,
-                updated_at=None,
-                source_status="stored",
-                months=[
-                    MonthlyUsageResponse(month=index + 1, used_bytes=0, has_data=False)
-                    for index in range(12)
-                ],
-            )
+            # A missing history series is not proof that paid access expired.
+            # Preserve stored totals; never replace unavailable history with zero.
+            source_status = "stale"
         except ProviderError:
             source_status = "stale"
 

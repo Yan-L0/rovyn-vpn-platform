@@ -75,13 +75,13 @@ class EmailAuthService:
                         "<p>Код входа:</p>"
                         "<p style='font-size:32px;font-weight:700;letter-spacing:8px'>"
                         f"{code}</p><p>Код действует 10 минут. "
-                        "Никому его не сообщайте.</p></div>"
+                        "Никому его не сообщайте.</p></div>"  # noqa: RUF001 — Russian email copy
                     ),
                 },
             )
         if response.status_code >= 300:
             raise HTTPException(
-                status_code=503, detail="Не удалось отправить код. Попробуйте позже"
+                status_code=503, detail="Не удалось отправить код. Попробуйте позже"  # noqa: RUF001
             )
         await self.redis.setex(
             f"email-auth:challenge:{challenge_id}", self.ttl, json.dumps(payload)

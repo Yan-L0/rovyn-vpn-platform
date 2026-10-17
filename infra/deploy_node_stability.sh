@@ -45,6 +45,11 @@ do
   fi
 done
 
+if [ ! -x "${base_dir}/bin/xray-device-revoke" ]; then
+  echo "missing verified credential-revocation core; see infra/xray/README.md" >&2
+  exit 1
+fi
+
 install -d -m 0700 "${backup_dir}"
 cp -a "${compose_file}" "${backup_dir}/docker-compose.yml"
 if [ -f "${sysctl_file}" ]; then

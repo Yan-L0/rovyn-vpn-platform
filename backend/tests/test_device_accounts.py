@@ -9,7 +9,7 @@ from fastapi import HTTPException, Response
 from vpn_platform.api import device_accounts as api
 from vpn_platform.db.models import Subscription, SubscriptionStatus, VpnDevice
 from vpn_platform.domain.vpn_provider import ProviderError
-from vpn_platform.providers.remnawave import RemnawaveProvider
+from vpn_platform.providers.remnawave import RemnawaveNotFound, RemnawaveProvider
 
 
 def fixture(monkeypatch):
@@ -137,5 +137,44 @@ async def test_revocation_never_calls_ip_drop(monkeypatch):
         read_user.return_value = {"status": "ACTIVE"}
         with pytest.raises(ProviderError):
             await provider.drop_connections("device")
+    finally:
+        await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_deleted_account_is_already_disabled_and_disconnected(monkeypatch):
+    provider = RemnawaveProvider("http://localhost", "test-token")
+    monkeypatch.setattr(provider, "_get_user", AsyncMock(side_effect=RemnawaveNotFound("gone")))
+    mutation = AsyncMock()
+    monkeypatch.setattr(provider, "_request", mutation)
+    try:
+        await provider.disable_user("historical-parent")
+        await provider.drop_connections("historical-parent")
+        mutation.assert_not_called()
+    finally:
+        await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_disable_still_reports_provider_outage(monkeypatch):
+    provider = RemnawaveProvider("http://localhost", "test-token")
+    monkeypatch.setattr(provider, "_get_user", AsyncMock(side_effect=ProviderError("offline")))
+    try:
+        with pytest.raises(ProviderError, match="offline"):
+            await provider.disable_user("device")
+        with pytest.raises(ProviderError, match="offline"):
+            await provider.drop_connections("device")
+    finally:
+        await provider.close()
+
+
+@pytest.mark.asyncio
+async def test_disable_action_404_does_not_hide_an_active_account(monkeypatch):
+    provider = RemnawaveProvider("http://localhost", "test-token")
+    monkeypatch.setattr(provider, "_get_user", AsyncMock(return_value={"status": "ACTIVE"}))
+    monkeypatch.setattr(provider, "_request", AsyncMock(side_effect=RemnawaveNotFound("action")))
+    try:
+        with pytest.raises(RemnawaveNotFound):
+            await provider.disable_user("active-device")
     finally:
         await provider.close()

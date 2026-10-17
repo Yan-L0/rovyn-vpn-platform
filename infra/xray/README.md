@@ -16,6 +16,12 @@ does not deploy. Build output and source are retained for audit.
 
 Deployment requirements:
 
+The primary `infra/compose.node.yml` now contains the core mount and omits
+NET_ADMIN. Install the verified binary before using it. The optional overlay is
+only for older compose files: explicit `docker compose -f ...` commands do not
+implicitly include docker-compose.override.yml. Never rely on that implicit
+overlay to preserve the revocation guarantee through boot or redeployment.
+
 - Back up the live node compose file and retain its image before changing it.
 - Mount the verified Linux binary read-only at `/usr/local/bin/xray`.
 - Remove NET_ADMIN from the node to prevent the IP-scoped kill fallback.

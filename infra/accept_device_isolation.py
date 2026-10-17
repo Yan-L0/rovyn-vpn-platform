@@ -23,9 +23,12 @@ from fastapi import FastAPI
 from sqlalchemy import delete, select
 
 from vpn_platform.api.account_v2 import router as account_router
+from vpn_platform.api.admin import router as admin_router
 from vpn_platform.api.device_accounts import router as device_router
+from vpn_platform.api.routes import router as identity_router
+from vpn_platform.api.orders import router as orders_router
 from vpn_platform.core.config import get_settings
-from vpn_platform.db.models import Order, OrderStatus, Plan, ServiceEvent, Subscription, SubscriptionStatus, User, VpnAccount, VpnDevice
+from vpn_platform.db.models import AuditLog, Order, OrderStatus, Plan, ServiceEvent, Subscription, SubscriptionStatus, SupportTicket, TelegramAccount, User, VpnAccount, VpnDevice
 from vpn_platform.db.session import create_engine, create_session_factory
 from vpn_platform.domain.vpn_provider import ProvisionUser
 from vpn_platform.providers.remnawave import RemnawaveProvider
@@ -119,11 +122,18 @@ async def main():
     app = FastAPI()
     app.include_router(account_router)
     app.include_router(device_router)
-    app.state.settings = settings
+    app.include_router(admin_router)
+    app.include_router(identity_router)
+    app.include_router(orders_router)
+    app.state.payment_provider = None
+    # Only this in-process test app recognizes the disposable account as owner.
+    test_telegram_id = 8_000_000_000_000 + secrets.randbelow(1_000_000_000)
+    app.state.settings = settings.model_copy(update={"BOT_OWNER_TELEGRAM_IDS": str(test_telegram_id)})
     app.state.vpn_provider = provider
     app.state.session_factory = factory
     user_id, sub_id = uuid.uuid4(), uuid.uuid4()
     renewal_id, renewal_order_id = uuid.uuid4(), uuid.uuid4()
+    historical_id = uuid.uuid4()
     remote_ids = []
     processes, sessions, datagrams = [], [], []
     revoked_credentials = set()
@@ -149,6 +159,7 @@ async def main():
             remote_ids.append(remote.provider_id)
             db.add(User(id=user_id, display_name="Temporary device acceptance", referral_code=secrets.token_hex(10)))
             await db.flush()
+            db.add(TelegramAccount(user_id=user_id, telegram_id=test_telegram_id, first_name="Acceptance"))
             db.add(Subscription(id=sub_id, user_id=user_id, plan_id=plan.id,
                 status=SubscriptionStatus.ACTIVE, starts_at=now, expires_at=now + timedelta(hours=1),
                 traffic_limit_bytes=0, device_limit=2, isolated_devices=False,
@@ -160,6 +171,21 @@ async def main():
             await db.commit()
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://acceptance",
             cookies={"vpn_session": session.token}, headers={"X-CSRF-Token": session.csrf_token}, timeout=40) as client:
+            assert (await client.get("/api/v1/me")).status_code == 200
+            assert (await client.get("/api/v1/catalog/plans")).status_code == 200
+            assert (await client.get("/api/v2/referrals/summary")).status_code == 200
+            ticket = await client.post("/api/v2/support/tickets", json={
+                "subject": "Disposable product acceptance", "body": "Temporary automated check"})
+            assert ticket.status_code == 201
+            assert len((await client.get("/api/v2/support/tickets")).json()) == 1
+            denied = await client.post("/api/v1/admin/grants", headers={"X-CSRF-Token": "wrong"},
+                json={"telegram_id": test_telegram_id, "plan_id": str(plan.id)})
+            assert denied.status_code == 403
+            if not settings.YOOKASSA_ENABLED:
+                payment = await client.post("/api/v1/orders", json={"plan_id": str(plan.id)},
+                    headers={"Idempotency-Key": f"qa:{user_id}"})
+                assert payment.status_code == 503
+            print("session_catalog_csrf_and_payment_gate=PASS", flush=True)
             assert (await client.post("/api/v2/device-accounts/migrate")).status_code == 204
             first_id, second_id = uuid.uuid4(), uuid.uuid4()
             one = {"request_id": str(first_id), "name": "Test phone"}
@@ -244,6 +270,38 @@ async def main():
                         value in denied.text for value in revoked_credentials
                     ), "revoked subscription reissued original credentials"
                 print("revoked_subscription_does_not_return=PASS", flush=True)
+                async with factory() as db:
+                    # Reproduce the production failure: an older subscription's
+                    # provider account has been deleted but its local reference remains.
+                    old = await provider.create_user(ProvisionUser(
+                        external_key=f"qa-history:{historical_id}", username=f"qa_{historical_id.hex}",
+                        expire_at=datetime.now(UTC) + timedelta(hours=1), traffic_limit_bytes=0,
+                        device_limit=1, server_group_ids=settings.default_squad_uuids), f"qa:{historical_id}")
+                    await provider.delete_user(old.provider_id)
+                    db.add(Subscription(id=historical_id, user_id=user_id, plan_id=plan.id,
+                        status=SubscriptionStatus.EXPIRED, starts_at=now - timedelta(days=2),
+                        expires_at=now - timedelta(days=1), traffic_limit_bytes=0, device_limit=1,
+                        isolated_devices=False, server_groups=[],
+                        public_token_digest=hashlib.sha256(secrets.token_bytes(32)).digest()))
+                    await db.flush()
+                    db.add(VpnAccount(subscription_id=historical_id, provider="remnawave",
+                        provider_user_id=old.provider_id, provider_username=old.username,
+                        desired_state={}, observed_state={}))
+                    await db.commit()
+                assert (await client.get("/api/v1/admin/access")).json()["is_owner"]
+                assert (await client.get(f"/api/v1/admin/users/{test_telegram_id}")).json()["found"]
+                grant = await client.post("/api/v1/admin/grants", json={
+                    "telegram_id": test_telegram_id, "plan_id": str(plan.id), "device_limit": 2,
+                    "comment": "Disposable acceptance grant"})
+                assert grant.status_code == 200, f"admin grant failed: {grant.status_code}"
+                assert grant.json()["subscription_url"] is None
+                assert (await client.get("/api/v2/subscription/access")).status_code == 200
+                history = await client.get("/api/v2/traffic/year")
+                assert history.status_code == 200
+                assert history.json()["source_status"] == "stale"
+                async with factory() as db:
+                    assert (await db.get(Subscription, sub_id)).status == SubscriptionStatus.ACTIVE
+                print("admin_grant_with_deleted_historical_account_and_history=PASS", flush=True)
                 # Synthetic order belongs only to this disposable user; no payment API.
                 async with factory() as db:
                     original = await db.get(Subscription, sub_id)
@@ -324,7 +382,9 @@ async def main():
                 await provider.delete_user(provider_id)
             await db.execute(delete(ServiceEvent).where(ServiceEvent.aggregate_id == renewal_order_id))
             await db.execute(delete(Order).where(Order.id == renewal_order_id))
-            await db.execute(delete(Subscription).where(Subscription.id.in_([sub_id, renewal_id])))
+            await db.execute(delete(AuditLog).where(AuditLog.actor_id == user_id))
+            await db.execute(delete(SupportTicket).where(SupportTicket.user_id == user_id))
+            await db.execute(delete(Subscription).where(Subscription.id.in_([sub_id, renewal_id, historical_id])))
             await db.execute(delete(User).where(User.id == user_id))
             await db.commit()
         await provider.close()

@@ -312,7 +312,14 @@ async def grant_access(
         vpn_account.reconciled_at = now
     subscription.status = SubscriptionStatus.ACTIVE
     await db.flush()
-    await sync_device_access(db, provider, subscription)
+    try:
+        await sync_device_access(db, provider, subscription)
+    except ProviderError as error:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Device synchronization failed; retry the grant",
+        ) from error
     db.add(
         AuditLog(
             actor_type="owner",

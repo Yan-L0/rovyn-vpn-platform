@@ -26,6 +26,7 @@ from vpn_platform.db.models import (
     VpnUsageDaily,
 )
 from vpn_platform.domain.vpn_provider import AccountStatus, ProviderUser, Usage, UsagePoint
+from vpn_platform.providers.remnawave import RemnawaveNotFound
 
 
 class Result:
@@ -208,6 +209,25 @@ async def test_yearly_traffic_returns_twelve_real_month_buckets() -> None:
     assert result.current_month_used_bytes == 20
     assert result.source_status == "fresh"
     assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.asyncio
+async def test_missing_history_preserves_paid_access_and_stored_totals() -> None:
+    from unittest.mock import AsyncMock
+
+    auth = authenticated_user()
+    subscription, _, account = subscription_row(auth.user.id)
+    now = datetime.now(UTC)
+    daily = VpnUsageDaily(
+        user_id=auth.user.id, usage_date=now.date(), used_bytes=123, sampled_at=now
+    )
+    db = FakeDatabase(rows=[(subscription, account)], scalar_rows=[daily])
+    provider = FakeProvider()
+    provider.get_usage_history = AsyncMock(side_effect=RemnawaveNotFound("history missing"))
+    result = await yearly_traffic(request_with(provider), Response(), db, auth, year=now.year)
+    assert result.current_month_used_bytes == 123
+    assert result.source_status == "stale"
+    assert subscription.status == SubscriptionStatus.ACTIVE
 
 
 @pytest.mark.asyncio
