@@ -1,5 +1,8 @@
 # Rovyn VPN Platform
 
+Agent development workflow: [AGENTS.md](AGENTS.md). Reviewed ECC skills and
+version: [ECC-INTEGRATION.md](ECC-INTEGRATION.md).
+
 Rovyn is a Telegram-first VPN service: users open a Mini App from the bot, buy
 a plan through YooKassa SBP, receive a personal Remnawave subscription URL and
 manage connected devices in one responsive web interface.
