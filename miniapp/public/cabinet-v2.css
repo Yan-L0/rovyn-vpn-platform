@@ -4108,6 +4108,7 @@ body.biorg-cabinet {
 /* One viewport-sized canvas at every width, including desktop Telegram.
    Document-height gradients and transformed shell layers expose seams on scroll. */
 html.cabinet-boot { background:#13766f; }
+html.cabinet-boot body.biorg-cabinet,
 body.biorg-cabinet {
   isolation:isolate;
   background:#13766f;
