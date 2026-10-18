@@ -7,15 +7,16 @@ for tool in git go python3 openssl; do
 done
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly build_dir="$(mktemp -d -t rovyn-xray-build.XXXXXXXX)"
-readonly revision=d2758a023cd7f4174a5a5fa4ff66e487d4342ba0
+readonly revision=5ca6f4b7d4dc20a881d4330e498892697627ec0c
 printf 'Build directory (retained for audit): %s\n' "$build_dir"
-git clone --depth 1 --branch v26.3.27 https://github.com/XTLS/Xray-core.git "$build_dir/source"
+git clone --depth 1 --branch v26.7.28 https://github.com/XTLS/Xray-core.git "$build_dir/source"
 cd -- "$build_dir/source"
 [[ "$(git rev-parse HEAD)" == "$revision" ]]
 git apply --check "$script_dir/device-revocation.patch"
 git apply "$script_dir/device-revocation.patch"
 cp -- "$script_dir/user_revoke_test.go" common/protocol/user_revoke_test.go
-gofmt -w common/protocol/user.go common/protocol/user_revoke_test.go proxy/vless/validator.go proxy/hysteria/account/config.go proxy/vless/inbound/inbound.go transport/internet/hysteria/hub.go
+cp -- "$script_dir/hysteria_revoke_test.go" proxy/hysteria/account/user_revoke_test.go
+gofmt -w common/protocol/user.go common/protocol/user_revoke_test.go proxy/hysteria/account/user_revoke_test.go proxy/vless/validator.go proxy/hysteria/account/config.go proxy/vless/inbound/inbound.go transport/internet/hysteria/hub.go
 GOMAXPROCS=2 go test -p 2 -race ./common/protocol ./proxy/vless/... ./proxy/vmess/encoding ./proxy/hysteria/... ./transport/internet/hysteria/...
 CGO_ENABLED=0 GOMAXPROCS=2 go build -p 2 -trimpath -o "$build_dir/xray-device-revoke" ./main
 python3 "$script_dir/../test_session_revocation.py" "$build_dir/xray-device-revoke"

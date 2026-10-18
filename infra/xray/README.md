@@ -1,7 +1,7 @@
 # Credential-scoped session revocation
 
-Pinned upstream: XTLS/Xray-core v26.3.27, commit
-`d2758a023cd7f4174a5a5fa4ff66e487d4342ba0`. Upstream MPL-2.0 applies to
+Pinned upstream: XTLS/Xray-core v26.7.28, commit
+`5ca6f4b7d4dc20a881d4330e498892697627ec0c`. Upstream MPL-2.0 applies to
 modified source files; retain its LICENSE when distributing a build.
 
 Remnawave Node 2.7.0's privileged socket destruction is IP-scoped: it may
@@ -9,10 +9,20 @@ disconnect unrelated devices behind NAT and does not reliably revoke existing
 Hysteria QUIC sessions. This patch signals revocation on the authenticated
 MemoryUser generation and closes its VLESS connection or Hysteria QUIC session.
 Other users and later generations of the same username are unaffected.
+Route-specific Hysteria credential views share their canonical generation's
+revocation signal; they must not create independently authorized sessions.
+
+This version also accepts Hysteria UDP when newer clients omit the QUIC
+max_datagram_frame_size advertisement after 1 September 2026. The former
+26.3.27 server could pass HTTPS health checks while losing all returned UDP.
+Validate actual bidirectional UDP with both current and older client binaries;
+an HTTPS-only observatory cannot detect that failure.
 
 Run `bash infra/xray/build.sh` with Go 1.26.1. The script verifies the upstream
 commit, runs race tests and a loopback two-device TCP/UDP acceptance test. It
 does not deploy. Build output and source are retained for audit.
+For a mixed-version loopback gate, run
+`python3 infra/test_session_revocation.py NEW_SERVER_BINARY OLD_CLIENT_BINARY`.
 
 Deployment requirements:
 

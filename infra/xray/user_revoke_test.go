@@ -28,3 +28,23 @@ func TestRevokeIsGenerationScopedAndConcurrent(t *testing.T) {
 		}
 	}
 }
+
+func TestRouteViewSharesCredentialRevocation(t *testing.T) {
+	credential := &MemoryUser{Email: "device"}
+	view := &MemoryUser{Email: "device", RevocationSource: credential}
+	if view.Revoked() != credential.Revoked() {
+		t.Fatal("route view has an independent revocation signal")
+	}
+	credential.Revoke()
+	select {
+	case <-view.Revoked():
+	default:
+		t.Fatal("route view survived credential revocation")
+	}
+	replacement := &MemoryUser{Email: "device"}
+	select {
+	case <-replacement.Revoked():
+		t.Fatal("new credential generation was revoked")
+	default:
+	}
+}

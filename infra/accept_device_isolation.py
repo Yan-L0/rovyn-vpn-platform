@@ -101,13 +101,20 @@ class DatagramProbe:
         host = b"stun.cloudflare.com"
         payload = struct.pack("!HHI", 1, 0, 0x2112A442) + transaction
         packet = b"\x00\x00\x00\x03" + bytes([len(host)]) + host + struct.pack("!H", 3478) + payload
-        try:
-            self.udp.sendto(packet, self.target)
-            response = self.udp.recv(4096)
-            offset = 10 if response[3] == 1 else 22 if response[3] == 4 else 7 + response[4]
-            return response[offset:offset + 2] == b"\x01\x01" and response[offset + 8:offset + 20] == transaction
-        except OSError:
-            return False
+        # UDP/STUN is lossy. Retransmit the same transaction, never accept an
+        # unrelated delayed reply, and still require revoked links to fail all tries.
+        for attempt in range(3):
+            try:
+                self.udp.sendto(packet, self.target)
+                response = self.udp.recv(4096)
+                offset = 10 if response[3] == 1 else 22 if response[3] == 4 else 7 + response[4]
+                if response[offset:offset + 2] == b"\x01\x01" and response[offset + 8:offset + 20] == transaction:
+                    if attempt:
+                        print(f"udp_probe_retransmissions={attempt}", flush=True)
+                    return True
+            except OSError:
+                continue
+        return False
 
     def close(self):
         self.control.close()

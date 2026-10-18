@@ -3,6 +3,7 @@
 import json
 import os
 import secrets
+import signal
 import socket
 import struct
 import subprocess
@@ -66,6 +67,13 @@ def stun(port, host, destination_port):
 
 
 def main():
+    binary = os.environ.get("E2E_XRAY_BIN", "")
+    binary_mount = []
+    if binary:
+        executable = Path(binary).resolve(strict=True)
+        if not executable.is_file() or not os.access(executable, os.X_OK):
+            raise RuntimeError("probe core is not executable")
+        binary_mount = ["-v", f"{executable}:/usr/local/bin/xray:ro"]
     token = read_env(APP_ENV)["REMNAWAVE_API_TOKEN"]
     user = api(token, "POST", "/api/users", {
         "username": "udpcheck_" + secrets.token_hex(6),
@@ -104,7 +112,7 @@ def main():
                 path.chmod(0o600)
                 name = "rovyn-udp-" + secrets.token_hex(5)
                 try:
-                    subprocess.run(["docker", "run", "-d", "--name", name, "--network", "host", "--entrypoint", "/usr/local/bin/xray", "-v", f"{path}:/tmp/test.json:ro", "remnawave/node:2.7.0", "run", "-c", "/tmp/test.json"], check=True, capture_output=True, timeout=30)
+                    subprocess.run(["docker", "run", "-d", "--name", name, "--network", "host", "--entrypoint", "/usr/local/bin/xray", "-v", f"{path}:/tmp/test.json:ro", *binary_mount, "remnawave/node:2.7.0", "run", "-c", "/tmp/test.json"], check=True, capture_output=True, timeout=30)
                     time.sleep(2)
                     started = time.monotonic()
                     while True:
@@ -132,4 +140,15 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    def interrupted(signum, frame):
+        # Let both container and temporary-account finally blocks run on timeout.
+        raise InterruptedError("UDP check interrupted")
+
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
+    try:
+        raise SystemExit(main())
+    except Exception as error:
+        # Fetch failures can contain credential-bearing subscription URLs.
+        print(f"udp_checks=error type={type(error).__name__}", flush=True)
+        raise SystemExit(1)

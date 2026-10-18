@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Loopback-only acceptance: two credentials, live TCP/UDP, cached reconnects.
 
-Usage: python3 test_session_revocation.py /absolute/path/to/patched/xray
+Usage: python3 test_session_revocation.py /path/to/server/xray [/path/to/client/xray]
 No production users, config, ports or credentials are touched.
 """
 import json
 import hashlib
+import os
 import ssl
 import secrets
 import socket
@@ -68,18 +69,22 @@ def tcp_passes(sock):
         return False
 
 
-def udp_passes(sock, relay, target):
-    payload = secrets.token_bytes(32)
+def udp_passes(sock, relay, target, payload_size=32):
+    payload = secrets.token_bytes(payload_size)
     header = b"\x00\x00\x00\x01" + socket.inet_aton("127.0.0.1") + struct.pack("!H", target)
     try:
         sock.sendto(header + payload, relay)
-        response = sock.recv(4096)
+        response = sock.recv(65535)
         return response.endswith(payload)
     except OSError:
         return False
 
 
-def main(binary):
+def main(binary, client_binary=None):
+    client_binary = client_binary or binary
+    payload_sizes = tuple(int(size) for size in os.environ.get("E2E_UDP_PAYLOAD_SIZES", "32,900,1400,4096").split(","))
+    if not payload_sizes or any(size < 1 or size > 8192 for size in payload_sizes):
+        raise ValueError("invalid UDP payload sizes")
     processes, live, udps, controls = [], [], [], []
     tcp = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Echo)
     tcp.daemon_threads = True
@@ -111,14 +116,25 @@ def main(binary):
             server_config = {"log": {"loglevel": "warning"}, "api": {"tag": "api-out", "services": ["HandlerService"]}, "inbounds": inbounds, "outbounds": [{"protocol": "freedom"}], "routing": {"rules": [{"type": "field", "inboundTag": ["api"], "outboundTag": "api-out"}]}}
 
             def start(name, config):
+                if name == "server":
+                    # New Xray blocks private proxy targets by default. Permit
+                    # only this isolated fixture's two loopback echo endpoints.
+                    config["outbounds"][0]["settings"] = {"finalRules": [
+                        {"action": "allow", "ip": ["127.0.0.1/32"],
+                         "port": f"{tcp_target},{udp_target}"}
+                    ]}
+                config["log"] = {"loglevel": "debug"}
                 path = root / (name + ".json")
                 path.write_text(json.dumps(config))
                 path.chmod(0o600)
                 log = (root / (name + ".log")).open("w")
-                process = subprocess.Popen([binary, "run", "-c", str(path)], stdout=log, stderr=log)
+                executable = binary if name == "server" else client_binary
+                process = subprocess.Popen([executable, "run", "-c", str(path)], stdout=log, stderr=log)
                 log.close()
                 processes.append(process)
                 process.test_log = root / (name + ".log")
+                # Keep the descriptor readable if TemporaryDirectory unlinks on failure.
+                process.test_reader = process.test_log.open()
 
             start("server", server_config)
             for owner in range(2):
@@ -146,7 +162,10 @@ def main(binary):
                 datagram.settimeout(2)
                 udps.append((datagram, relay))
                 assert udp_passes(datagram, relay, udp_target), f"UDP baseline failed for {port}"
+                for size in payload_sizes:
+                    assert udp_passes(datagram, relay, udp_target, size), f"UDP {size}-byte payload failed for {port}"
             print("baseline: six TCP and six UDP paths PASS", flush=True)
+            print("UDP payloads " + "/".join(map(str, payload_sizes)) + " bytes PASS", flush=True)
             for tag in names:
                 subprocess.run([binary, "api", "rmu", "--server=127.0.0.1:19850", f"-tag={tag}", "device-0"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
             time.sleep(1)
@@ -165,6 +184,14 @@ def main(binary):
                 checks.extend([tcp_ok == retained, udp_ok == retained, fresh_ok == retained])
             assert all(checks), "session isolation gate failed"
             print("session revocation + same-IP isolation PASS", flush=True)
+    except BaseException:
+        for process in processes:
+            process.test_reader.seek(0)
+            diagnostic = process.test_reader.read()
+            for credential in ids:
+                diagnostic = diagnostic.replace(credential, "[credential]")
+            print(f"diagnostic {process.test_log.stem}:\n" + "\n".join(diagnostic.splitlines()[-12:]), flush=True)
+        raise
     finally:
         for conn in live + controls:
             conn.close()
@@ -177,6 +204,7 @@ def main(binary):
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
+            process.test_reader.close()
         tcp.shutdown()
         udp.shutdown()
         tcp.server_close()
@@ -184,4 +212,4 @@ def main(binary):
 
 
 if __name__ == "__main__":
-    main(str(Path(sys.argv[1]).resolve()))
+    main(str(Path(sys.argv[1]).resolve()), str(Path(sys.argv[2]).resolve()) if len(sys.argv) > 2 else None)

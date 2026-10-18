@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/rovyn-transport-monitor
-TimeoutStartSec=420
+TimeoutStartSec=600
 KillMode=control-group
 UMask=0077
 Nice=10

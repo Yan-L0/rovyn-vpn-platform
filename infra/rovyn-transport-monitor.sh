@@ -22,6 +22,11 @@ if ! timeout --kill-after=15 120 python3 -u \
   /opt/vpn-platform/infra/verify_subscription_outputs.py; then
   status=1
 fi
+if ! timeout --kill-after=45 150 env \
+  E2E_XRAY_BIN=/opt/remnawave/monitor-bin/xray \
+  python3 -u "$base_dir/probe_call_paths.py"; then
+  status=1
+fi
 result_file="$(mktemp "$state_dir/result.XXXXXX")"
 trap 'rm -f "$result_file"' EXIT
 printf 'checked=%s\nstatus=%s\n' "$(date -u +%FT%TZ)" "$status" >"$result_file"

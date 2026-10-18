@@ -1,0 +1,2 @@
+# Unified patches contain context lines prefixed with a space before Go tabs.
+infra/xray/*.patch -whitespace
