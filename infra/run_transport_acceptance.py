@@ -10,13 +10,13 @@ import secrets
 import signal
 import subprocess
 import sys
+import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 
-PANEL_URL = "https://panel.vpn.example"
 SQUAD_UUID = "8e319819-2110-44ab-b6f5-e76138233ed5"
 APP_ENV = Path("/opt/vpn-platform/.env.production")
 WORK_DIRECTORY = Path("/opt/remnawave")
@@ -40,7 +40,7 @@ def api(
 ) -> Any:
     data = None if payload is None else json.dumps(payload).encode()
     request = urllib.request.Request(
-        PANEL_URL + path,
+        (os.environ.get("E2E_PANEL_URL") or read_env(APP_ENV)["REMNAWAVE_BASE_URL"]).rstrip("/") + path,
         data=data,
         method=method,
         headers={
@@ -83,11 +83,12 @@ def main() -> int:
             json.dumps({"subscriptionUrl": created["subscriptionUrl"]})
         )
         os.chmod(USER_FILE, 0o600)
+        time.sleep(float(os.environ.get("E2E_POLICY_WAIT_SECONDS", "0")))
         environment = os.environ.copy()
         environment.update(
             {
                 "E2E_USER_FILE": str(USER_FILE),
-                "E2E_TARGET_ADDRESS": "node.vpn.example",
+                "E2E_TARGET_ADDRESS": os.environ.get("E2E_TARGET_ADDRESS", "89.34.219.170"),
                 "E2E_WORK_DIRECTORY": str(WORK_DIRECTORY),
             }
         )

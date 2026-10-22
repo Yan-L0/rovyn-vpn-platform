@@ -72,6 +72,11 @@ services:
       context: ../backend
     ports:
       - "127.0.0.1:8080:8080"
+    environment:
+      <<: *app-environment
+      TARIFF_POLICY_ACK_PATH: /run/rovyn-tariffs/policy.json
+    volumes:
+      - /opt/rovyn-tariffs/ack:/run/rovyn-tariffs:ro
     depends_on:
       migrate:
         condition: service_completed_successfully

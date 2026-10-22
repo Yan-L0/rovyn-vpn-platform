@@ -132,8 +132,16 @@ class RemnawaveProvider:
 
     async def get_usage(self, provider_id: str) -> Usage:
         user = await self._get_user(provider_id)
+        traffic = user.get("userTraffic")
+        value = (
+            traffic.get("usedTrafficBytes")
+            if isinstance(traffic, dict)
+            else user.get("usedTrafficBytes")
+        )
+        if type(value) is not int or value < 0:
+            raise ProviderError("Remnawave traffic accounting is unavailable")
         return Usage(
-            used_bytes=self._integer(user.get("usedTrafficBytes")),
+            used_bytes=value,
             traffic_limit_bytes=self._integer(user.get("trafficLimitBytes")),
         )
 

@@ -83,6 +83,7 @@ def main():
         "description": "temporary bidirectional UDP acceptance test",
     })
     try:
+        time.sleep(float(os.environ.get("E2E_POLICY_WAIT_SECONDS", "0")))
         req = urllib.request.Request(user["subscriptionUrl"], headers={"User-Agent": "Happ/5.8.0/ios"})
         with urllib.request.urlopen(req, timeout=30) as response:
             configs = json.load(response)

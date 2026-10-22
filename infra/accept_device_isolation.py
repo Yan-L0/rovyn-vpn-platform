@@ -7,6 +7,7 @@ Never logs sessions, subscription URLs, credentials, or returned documents.
 import asyncio
 import hashlib
 import json
+import os
 import secrets
 import socket
 import ssl
@@ -47,12 +48,11 @@ def read(sock, count):
     return data
 
 
-def tunnel(port):
+def tunnel(port, host=b"www.gstatic.com"):
     sock = socket.create_connection(("127.0.0.1", port), timeout=5)
     try:
         sock.sendall(b"\x05\x01\x00")
         assert read(sock, 2) == b"\x05\x00"
-        host = b"www.gstatic.com"
         sock.sendall(b"\x05\x01\x00\x03" + bytes([len(host)]) + host + struct.pack("!H", 443))
         reply = read(sock, 4)
         assert reply[1] == 0
@@ -81,6 +81,29 @@ def probe(port):
             return request204(sock)
     except (OSError, AssertionError):
         return False
+
+
+def large_download(port, size):
+    started = time.monotonic()
+    count = 0
+    status = False
+    try:
+        with tunnel(port,b"speed.cloudflare.com") as sock:
+            sock.sendall(f"GET /__down?bytes={size} HTTP/1.1\r\nHost: speed.cloudflare.com\r\nConnection: close\r\n\r\n".encode())
+            header = b""
+            while b"\r\n\r\n" not in header:
+                data = sock.recv(16384)
+                if not data:
+                    return False,count,0
+                header += data
+            head,body=header.split(b"\r\n\r\n",1)
+            status=b" 200 " in head.split(b"\r\n",1)[0]
+            count=len(body)
+            while data:=sock.recv(16384):
+                count+=len(data)
+    except OSError:
+        pass
+    return status and count>=size, count, count*8/1_000_000/(time.monotonic()-started)
 
 
 class DatagramProbe:
@@ -122,6 +145,7 @@ class DatagramProbe:
 
 
 async def main():
+    tariff_test = os.environ.get("E2E_TARIFF_ACCEPTANCE") == "1"
     settings = get_settings()
     engine = create_engine(settings.DATABASE_URL)
     factory = create_session_factory(engine)
@@ -169,7 +193,9 @@ async def main():
             db.add(TelegramAccount(user_id=user_id, telegram_id=test_telegram_id, first_name="Acceptance"))
             db.add(Subscription(id=sub_id, user_id=user_id, plan_id=plan.id,
                 status=SubscriptionStatus.ACTIVE, starts_at=now, expires_at=now + timedelta(hours=1),
-                traffic_limit_bytes=0, device_limit=2, isolated_devices=False,
+                traffic_limit_bytes=4 * 1024**2 if tariff_test else 0,
+                access_policy={"mbps": 8} if tariff_test else {},
+                device_limit=2, isolated_devices=False,
                 server_groups=list(settings.default_squad_uuids), public_token_digest=hashlib.sha256(secrets.token_bytes(32)).digest()))
             await db.flush()
             db.add(VpnAccount(subscription_id=sub_id, provider="remnawave", provider_user_id=remote.provider_id,
@@ -240,6 +266,44 @@ async def main():
                     datagrams.append(udp)
                     assert await asyncio.to_thread(udp.probe), "baseline UDP failed"
                 print("four_live_udp_paths=PASS", flush=True)
+                if tariff_test:
+                    # A real large TLS transfer reaches Vision's direct-copy
+                    # state; its rate must still obey this temporary 8-Mbit cap.
+                    complete, count, mbps = await asyncio.to_thread(large_download,12880,1_000_000)
+                    assert complete, "large Vision transfer failed"
+                    assert 0 < mbps <= 8.8, f"Vision bypassed speed limit: {mbps:.1f} Mbps"
+                    print(f"vision_large_tls_rate={mbps:.1f}_Mbps_expected_max_8.8=PASS", flush=True)
+                    complete, count, _ = await asyncio.to_thread(large_download,12883,8_000_000)
+                    print(f"quota_download_bytes_before_stop={count}", flush=True)
+                    assert not complete and count > 100_000, "finite quota did not stop download"
+                    for port in range(12880,12886):
+                        assert not await asyncio.to_thread(probe,port), "device or protocol bypassed shared quota"
+                    for udp in datagrams:
+                        assert not await asyncio.to_thread(udp.probe), "live UDP bypassed quota"
+                    print("finite_shared_quota_all_devices_protocols=PASS", flush=True)
+                    # Simulate another paid period only on this owned fixture.
+                    async with factory() as db:
+                        sub = await db.get(Subscription,sub_id)
+                        sub.access_policy={"mbps":8,"epoch":str(uuid.uuid4())}
+                        sub.traffic_limit_bytes=4*1024**2
+                        await db.commit()
+                    restored_link = await client.post(f"/api/v2/device-accounts/{second_id}/link")
+                    assert restored_link.status_code == 200, f"new-period link status={restored_link.status_code}"
+                    for sock in sessions:
+                        sock.close()
+                    sessions.clear()
+                    for udp in datagrams:
+                        udp.close()
+                    datagrams.clear()
+                    for port in range(12880,12886):
+                        sock=await asyncio.to_thread(tunnel,port)
+                        sessions.append(sock)
+                        assert await asyncio.to_thread(request204,sock)
+                    for port in (12881,12882,12884,12885):
+                        udp=DatagramProbe(port)
+                        datagrams.append(udp)
+                        assert await asyncio.to_thread(udp.probe)
+                    print("new_paid_period_restores_retained_credentials=PASS", flush=True)
                 removed = await client.delete(f"/api/v2/device-accounts/{first_id}")
                 assert removed.status_code == 204
                 await asyncio.sleep(3)

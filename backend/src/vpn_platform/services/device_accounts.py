@@ -10,6 +10,29 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from vpn_platform.db.models import Subscription, SubscriptionStatus, VpnAccount, VpnDevice
 from vpn_platform.domain.vpn_provider import ProviderError, UsagePoint, VPNProvider
+from vpn_platform.providers.remnawave import RemnawaveNotFound
+
+
+async def usage_baseline(
+    db: AsyncSession, provider: VPNProvider, subscription: Subscription
+) -> dict[str, int]:
+    ids = list(
+        (
+            await db.scalars(
+                select(VpnAccount.provider_user_id).where(
+                    VpnAccount.subscription_id == subscription.id
+                )
+            )
+        ).all()
+    )
+    ids += [d.provider_user_id for d in await device_rows(db, subscription) if d.provider_user_id]
+    result = {}
+    for provider_id in set(ids):
+        try:
+            result[provider_id] = (await provider.get_usage(provider_id)).used_bytes
+        except RemnawaveNotFound:
+            continue  # Deleted credentials have no future traffic.
+    return result
 
 
 async def device_rows(db: AsyncSession, subscription: Subscription) -> list[VpnDevice]:
@@ -54,7 +77,7 @@ async def sync_device_access(
             and occupied <= subscription.device_limit
             and subscription.status == SubscriptionStatus.ACTIVE
             and subscription.expires_at > datetime.now(UTC)
-            and subscription.traffic_limit_bytes == 0
+            and (subscription.traffic_limit_bytes == 0 or bool(subscription.access_policy))
         )
         if not allowed:
             await provider.disable_user(device.provider_user_id)

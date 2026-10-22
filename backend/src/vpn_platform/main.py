@@ -20,6 +20,7 @@ from vpn_platform.db.session import create_engine, create_session_factory
 from vpn_platform.providers.remnawave import RemnawaveProvider
 from vpn_platform.providers.yookassa import YooKassaProvider
 from vpn_platform.services.device_accounts import device_reconcile_loop
+from vpn_platform.services.transport_policy import policy_ready
 from vpn_platform.services.usage_sync import usage_sync_loop
 
 logger = logging.getLogger(__name__)
@@ -111,6 +112,9 @@ async def live() -> dict[str, str]:
 @app.get("/health/ready", include_in_schema=False)
 async def ready(request: Request, response: Response) -> dict[str, object]:
     checks: dict[str, bool] = {"postgres": False, "redis": False, "vpn_provider": False}
+    ack_path = request.app.state.settings.TARIFF_POLICY_ACK_PATH
+    if ack_path:
+        checks["traffic_policy"] = await policy_ready(ack_path)
     try:
         async with request.app.state.session_factory() as db:
             await db.execute(text("SELECT 1"))

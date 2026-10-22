@@ -884,6 +884,7 @@ svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width:
 .tariff-card > span { color:#757970; font-size:12px; }
 .tariff-card strong { margin:auto 0 5px; font-size:clamp(42px,4vw,62px); letter-spacing:-.07em; }
 .tariff-card small { color:#747970; }
+.tariff-terms { margin:16px 0 0; padding-right:48px; font-size:12px; line-height:1.5; }
 .tariff-card i { position:absolute; right:28px; bottom:28px; display:grid; width:52px; height:52px; place-items:center; border-radius:50%; color:var(--white); background:var(--black); }
 .tariff-card i svg { width:18px; }
 .tariff-card.warm { background:var(--moss); }

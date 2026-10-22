@@ -27,7 +27,8 @@ from vpn_platform.db.models import (
     Wallet,
 )
 from vpn_platform.domain.vpn_provider import AccountStatus, ProviderError, ProvisionUser
-from vpn_platform.services.device_accounts import sync_device_access
+from vpn_platform.services.device_accounts import sync_device_access, usage_baseline
+from vpn_platform.services.transport_policy import wait_for_policy
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -228,9 +229,9 @@ async def grant_access(
             starts_at=starts_at,
             expires_at=starts_at + timedelta(days=plan.duration_days),
             traffic_limit_bytes=plan.traffic_limit_bytes,
+            access_policy=dict(plan.access_policy or {}),
             isolated_devices=(
-                plan.traffic_limit_bytes == 0
-                and request.app.state.settings.REMNAWAVE_DEVICE_SESSION_REVOCATION_ENABLED
+                request.app.state.settings.REMNAWAVE_DEVICE_SESSION_REVOCATION_ENABLED
             ),
             device_limit=payload.device_limit or plan.device_limit,
             server_groups=list(plan.server_groups),
@@ -250,6 +251,20 @@ async def grant_access(
             days=plan.duration_days
         )
         subscription.traffic_limit_bytes = plan.traffic_limit_bytes
+        baseline = {}
+        if plan.access_policy:
+            try:
+                baseline = await usage_baseline(db, provider, subscription)
+            except ProviderError as error:
+                await db.rollback()
+                raise HTTPException(
+                    502, "Traffic accounting unavailable; grant was not applied"
+                ) from error
+        subscription.access_policy = {
+            **(plan.access_policy or {}),
+            "epoch": str(uuid.uuid4()),
+            "usage_baseline": baseline,
+        }
         subscription.device_limit = payload.device_limit or plan.device_limit
         subscription.server_groups = list(plan.server_groups)
 
@@ -257,7 +272,7 @@ async def grant_access(
         external_key=f"admin:{subscription.id}",
         username=f"vpn_{subscription.id.hex}",
         expire_at=subscription.expires_at,
-        traffic_limit_bytes=subscription.traffic_limit_bytes,
+        traffic_limit_bytes=0 if subscription.access_policy else subscription.traffic_limit_bytes,
         device_limit=subscription.device_limit,
         server_group_ids=(
             request.app.state.settings.default_squad_uuids or subscription.server_groups
@@ -339,10 +354,22 @@ async def grant_access(
         )
     )
     await db.commit()
+    link = None if subscription.isolated_devices else remote.subscription_url
+    if link:
+        try:
+            await wait_for_policy(
+                getattr(request.app.state.settings, "TARIFF_POLICY_ACK_PATH", ""),
+                subscription,
+                remote.provider_id,
+            )
+        except HTTPException:
+            # The grant is already committed: reporting failure would invite a
+            # second grant. The cabinet can fetch its link once sync completes.
+            link = None
     return AdminGrantResponse(
         telegram_id=payload.telegram_id,
         display_name=user.display_name,
         status=subscription.status.value,
         expires_at=subscription.expires_at,
-        subscription_url=None if subscription.isolated_devices else remote.subscription_url,
+        subscription_url=link,
     )

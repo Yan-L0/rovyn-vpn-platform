@@ -1,0 +1,17 @@
+[Unit]
+Description=Publish subscription traffic policies to the VPN node
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/rovyn-tariffs/publish_tariff_policy.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

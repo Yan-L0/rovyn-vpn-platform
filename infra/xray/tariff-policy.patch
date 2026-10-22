@@ -1,0 +1,36 @@
+diff --git a/app/dispatcher/default.go b/app/dispatcher/default.go
+--- a/app/dispatcher/default.go
++++ b/app/dispatcher/default.go
+@@ -130,6 +130,7 @@ func (*DefaultDispatcher) Type() interface{} {
+ 
+ // Start implements common.Runnable.
+ func (*DefaultDispatcher) Start() error {
++	localTariffs()
+ 	return nil
+ }
+ 
+@@ -184,6 +184,12 @@ func (d *DefaultDispatcher) getLink(ctx context.Context) (*transport.Link, *transpo
+ 		}
+ 	}
+ 
++	if m := localTariffs(); m != nil && user != nil && user.Email != "" {
++		sessionInbound.CanSpliceCopy = 3
++		inboundLink.Writer = newTariffWriter(ctx, user, m, inboundLink.Writer, false)
++		outboundLink.Writer = newTariffWriter(ctx, user, m, outboundLink.Writer, true)
++	}
++
+ 	return inboundLink, outboundLink
+ }
+ 
+@@ -195,6 +201,11 @@ func WrapLink(ctx context.Context, policyManager policy.Manager, statsManager stat
+ 		user = sessionInbound.User
+ 	}
+ 
++	if m := localTariffs(); m != nil && user != nil && user.Email != "" {
++		sessionInbound.CanSpliceCopy = 3
++		link.Reader = newTariffReader(ctx, user, m, link.Reader)
++		link.Writer = newTariffWriter(ctx, user, m, link.Writer, true)
++	}
+ 	link.Reader = &buf.TimeoutWrapperReader{Reader: link.Reader}
+ 
+ 	if user != nil && len(user.Email) > 0 {

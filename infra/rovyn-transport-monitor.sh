@@ -5,6 +5,7 @@ set -Eeuo pipefail
 umask 077
 readonly base_dir=/opt/remnawave
 readonly state_dir=/var/lib/rovyn-transport-monitor
+export E2E_POLICY_WAIT_SECONDS=7
 for command in flock timeout python3; do
   command -v "$command" >/dev/null || exit 1
 done

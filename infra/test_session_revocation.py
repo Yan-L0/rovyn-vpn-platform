@@ -100,6 +100,14 @@ def main(binary, client_binary=None):
             cert, key = root / "cert.pem", root / "key.pem"
             subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj", "/CN=localhost", "-keyout", str(key), "-out", str(cert)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             ids = [str(uuid.uuid4()), str(uuid.uuid4())]
+            tariff_path = root / "tariffs.json"
+            tariff_document = {"version": 1, "groups": [{
+                "id": "shared-subscription", "emails": ["device-0", "device-1"],
+                "mbps": 70, "quota": 1024 * 1024, "fup": False,
+            }]}
+            if os.environ.get("E2E_TARIFF_POLICY"):
+                tariff_path.write_text(json.dumps(tariff_document))
+                Path(str(tariff_path) + ".state").write_text("{}")
             cert_pin = hashlib.sha256(ssl.PEM_cert_to_DER_cert(cert.read_text())).hexdigest()
             inbounds = [{"tag": "api", "listen": "127.0.0.1", "port": 19850, "protocol": "dokodemo-door", "settings": {"address": "127.0.0.1"}}]
             for index, network in enumerate(names):
@@ -129,7 +137,11 @@ def main(binary, client_binary=None):
                 path.chmod(0o600)
                 log = (root / (name + ".log")).open("w")
                 executable = binary if name == "server" else client_binary
-                process = subprocess.Popen([executable, "run", "-c", str(path)], stdout=log, stderr=log)
+                env = dict(os.environ)
+                env.pop("XRAY_ROVYN_TARIFF_POLICY", None)
+                if name == "server" and os.environ.get("E2E_TARIFF_POLICY"):
+                    env["XRAY_ROVYN_TARIFF_POLICY"] = str(tariff_path)
+                process = subprocess.Popen([executable, "run", "-c", str(path)], stdout=log, stderr=log, env=env)
                 log.close()
                 processes.append(process)
                 process.test_log = root / (name + ".log")
@@ -166,6 +178,16 @@ def main(binary, client_binary=None):
                     assert udp_passes(datagram, relay, udp_target, size), f"UDP {size}-byte payload failed for {port}"
             print("baseline: six TCP and six UDP paths PASS", flush=True)
             print("UDP payloads " + "/".join(map(str, payload_sizes)) + " bytes PASS", flush=True)
+            if os.environ.get("E2E_TARIFF_QUOTA"):
+                assert os.environ.get("E2E_TARIFF_POLICY"), "quota test requires tariff policy"
+                tariff_document["groups"][0]["quota"] = 1
+                tariff_path.write_text(json.dumps(tariff_document))
+                time.sleep(2)
+                for index in range(6):
+                    assert not tcp_passes(live[index]), f"quota bypass TCP {index}"
+                    assert not udp_passes(*udps[index], udp_target), f"quota bypass UDP {index}"
+                print("shared quota stops both devices on all six live TCP/UDP paths PASS", flush=True)
+                return
             for tag in names:
                 subprocess.run([binary, "api", "rmu", "--server=127.0.0.1:19850", f"-tag={tag}", "device-0"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
             time.sleep(1)

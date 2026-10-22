@@ -12,6 +12,7 @@ from vpn_platform.api.dependencies import AuthenticatedUser, DatabaseSession, re
 from vpn_platform.db.models import Subscription, SubscriptionStatus, VpnAccount, VpnDevice
 from vpn_platform.domain.vpn_provider import ProviderError, ProvisionUser, VPNProvider
 from vpn_platform.services.device_accounts import device_rows, sync_device_access
+from vpn_platform.services.transport_policy import wait_for_policy
 
 router = APIRouter(prefix="/api/v2/device-accounts", tags=["device-accounts"])
 MutatingUser = Annotated[AuthenticatedUser, Depends(require_csrf)]
@@ -48,8 +49,8 @@ async def locked_subscription(db: DatabaseSession, user_id: uuid.UUID) -> Subscr
         UTC
     ):
         raise HTTPException(409, "Subscription is not active")
-    if subscription.traffic_limit_bytes != 0:
-        raise HTTPException(409, "Personal devices currently require an unlimited plan")
+    if subscription.traffic_limit_bytes and not subscription.access_policy:
+        raise HTTPException(409, "Shared traffic policy is not configured")
     return subscription
 
 
@@ -147,6 +148,11 @@ async def create_device(
         raise HTTPException(502, "Device provisioning pending; retry the same request") from error
     if not remote.subscription_url:
         raise HTTPException(502, "Device link unavailable")
+    await wait_for_policy(
+        getattr(request.app.state.settings, "TARIFF_POLICY_ACK_PATH", ""),
+        subscription,
+        remote.provider_id,
+    )
     return {
         "id": str(existing.id),
         "name": existing.name,
@@ -172,6 +178,11 @@ async def device_link(
     remote = await provider_for(request).get_subscription_info(device.provider_user_id)
     if not remote.subscription_url:
         raise HTTPException(502, "Device link unavailable")
+    await wait_for_policy(
+        getattr(request.app.state.settings, "TARIFF_POLICY_ACK_PATH", ""),
+        subscription,
+        remote.provider_id,
+    )
     return {"subscription_url": remote.subscription_url}
 
 

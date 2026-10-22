@@ -57,9 +57,9 @@ const previewMe: Me = {
   subscription: { status: 'active', plan_name: 'NOVA Год', expires_at: '2027-07-21T12:00:00Z', traffic_limit_bytes: 0, device_limit: 5, used_bytes: 20_079_054_848 },
 }
 const previewPlans: Plan[] = [
-  { id: 'preview-month', code: 'MONTH', name: 'NOVA Месяц', description: 'Чтобы познакомиться', duration_days: 30, traffic_limit_bytes: 0, device_limit: 5, price_minor: 10_500, currency: 'RUB', server_groups: [] },
-  { id: 'preview-year', code: 'YEAR', name: 'NOVA Год', description: 'Максимальная выгода', duration_days: 365, traffic_limit_bytes: 0, device_limit: 5, price_minor: 94_500, currency: 'RUB', server_groups: [] },
-  { id: 'preview-half', code: 'HALF_YEAR', name: 'NOVA Полгода', description: 'Оптимальный период', duration_days: 180, traffic_limit_bytes: 0, device_limit: 5, price_minor: 52_500, currency: 'RUB', server_groups: [] },
+  { id: 'preview-month', code: 'MONTH', name: 'NOVA Месяц', description: '25 ГБ на весь срок · до 70 Мбит/с', duration_days: 30, traffic_limit_bytes: 25 * 1024 ** 3, device_limit: 5, price_minor: 11_100, currency: 'RUB', server_groups: [] },
+  { id: 'preview-year', code: 'YEAR', name: 'NOVA Год', description: 'Безлимитный трафик. При среднем скачивании выше 100 Мбит/с за 10 минут — до 100 Мбит/с. Восстановление после 15 минут нагрузки ниже 10 Мбит/с.', duration_days: 365, traffic_limit_bytes: 0, device_limit: 5, price_minor: 96_000, currency: 'RUB', server_groups: [] },
+  { id: 'preview-half', code: 'HALF_YEAR', name: 'NOVA Полгода', description: '200 ГБ на весь срок · до 100 Мбит/с', duration_days: 180, traffic_limit_bytes: 200 * 1024 ** 3, device_limit: 5, price_minor: 56_000, currency: 'RUB', server_groups: [] },
 ]
 const previewAccess: SubscriptionAccess = {
   subscription_id: 'preview', status: 'active', provider_status: 'ACTIVE', plan_name: 'NOVA Год', subscription_url: 'https://example.invalid/sub/preview', starts_at: '2026-07-21T12:00:00Z', expires_at: '2027-07-21T12:00:00Z', device_limit: 5,
@@ -132,8 +132,8 @@ function planLabel(days: number): string {
 }
 
 function discount(days: number): string | null {
-  if (days >= 360) return '−25%'
-  if (days >= 170) return '−17%'
+  if (days >= 360) return '−28%'
+  if (days >= 170) return '−16%'
   if (days >= 80) return '−10%'
   return null
 }
@@ -653,6 +653,7 @@ export default function CabinetV2() {
   if (error || !me) return <main className="cabinet-state"><strong>Вход не выполнен</strong><p>{error || 'Откройте кабинет из официального Telegram-бота.'}</p></main>
 
   const active = Boolean(access && access.status !== 'expired')
+  const quotaExhausted = Boolean(access && access.usage.traffic_limit_bytes > 0 && access.usage.used_bytes >= access.usage.traffic_limit_bytes)
   const days = remainingDays(access?.expires_at ?? me.subscription?.expires_at)
   const limit = access?.device_limit ?? me.subscription?.device_limit ?? 0
   const currentMonth = traffic?.current_month ?? new Date().getMonth() + 1
@@ -691,10 +692,10 @@ export default function CabinetV2() {
                 <div className="home-access-intro__signal" aria-hidden="true"><div className="home-access-intro__orbit"><i /><i /><i /><span>R</span></div></div>
               </section>
               <article className="home-access-plan">
-                <p>{active ? 'Подписка активна' : 'Готово к подключению'}</p>
+                <p>{quotaExhausted ? 'Трафик закончился' : active ? 'Подписка активна' : 'Готово к подключению'}</p>
                 <div><strong>{active ? access!.plan_name : 'Выберите свой ритм.'}</strong></div>
                 <small>{active ? `${formatTrafficLimit(access!.usage.traffic_limit_bytes)} · до ${limit} устройств` : 'До 5 устройств · безлимитный трафик'}</small>
-                <button className="home-access-plan__action" onClick={() => active ? void copyAccess() : navigate('plans')}>{active ? 'Открыть подключение' : 'Выбрать тариф'} <Icon name="arrow" /></button>
+                <button className="home-access-plan__action" onClick={() => active && !quotaExhausted ? void copyAccess() : navigate('plans')}>{quotaExhausted ? 'Продлить подписку' : active ? 'Открыть подключение' : 'Выбрать тариф'} <Icon name="arrow" /></button>
               </article>
             </div>
 
@@ -723,8 +724,8 @@ export default function CabinetV2() {
         </section>
 
         <section className={`screen ${view === 'plans' ? 'is-visible' : ''}`}>
-          <header className="page-title"><p className="kicker">Тарифы</p><h2>Выберите свой<br />ритм.</h2><p>Пять устройств и безлимитный трафик включены.</p></header>
-          {sortedPlans.length ? <div className="plans-grid">{sortedPlans.map((plan) => <button key={plan.id} className={`tariff-card ${planCardClass(plan)}`} data-bg={planBackground(plan)} data-discount={discount(plan.duration_days) ?? undefined} onClick={() => { setPaymentPlan(plan); setPayment(null); setPaymentError(null) }}><span>{planLabel(plan.duration_days)}</span><strong>{formatMoney(plan.price_minor, plan.currency)}</strong><small>{plan.duration_days >= 60 ? `${formatMoney(monthlyPriceMinor(plan), plan.currency)} в месяц` : plan.description}</small><i><Icon name="arrow" /></i></button>)}</div> : <div className="empty-state">Тарифы временно недоступны. Попробуйте обновить кабинет.</div>}
+          <header className="page-title"><p className="kicker">Тарифы</p><h2>Выберите свой<br />ритм.</h2><p>До пяти устройств. Трафик общий на весь оплаченный срок.</p></header>
+          {sortedPlans.length ? <div className="plans-grid">{sortedPlans.map((plan) => <button key={plan.id} className={`tariff-card ${planCardClass(plan)}`} data-bg={planBackground(plan)} data-discount={discount(plan.duration_days) ?? undefined} onClick={() => { setPaymentPlan(plan); setPayment(null); setPaymentError(null) }}><span>{planLabel(plan.duration_days)}</span><strong>{formatMoney(plan.price_minor, plan.currency)}</strong><small>{plan.duration_days >= 60 ? `${formatMoney(monthlyPriceMinor(plan), plan.currency)} в месяц` : 'Оплата за весь срок'}</small><p className="tariff-terms">{plan.description}</p><i><Icon name="arrow" /></i></button>)}</div> : <div className="empty-state">Тарифы временно недоступны. Попробуйте обновить кабинет.</div>}
         </section>
 
         <section className={`screen ${view === 'devices' ? 'is-visible' : ''}`}>

@@ -36,6 +36,7 @@ services:
         required: true
     environment:
       NODE_PORT: "2222"
+      XRAY_ROVYN_TARIFF_POLICY: /etc/rovyn-tariffs/policy.json
     depends_on:
       reality-fallback:
         condition: service_healthy
@@ -49,6 +50,11 @@ services:
         bind:
           create_host_path: false
       - /var/log/remnanode:/var/log/remnanode
+      - type: bind
+        source: /opt/remnanode/tariffs
+        target: /etc/rovyn-tariffs
+        bind:
+          create_host_path: false
       - /opt/remnanode/ssl:/var/lib/remnawave/configs/xray/ssl:ro
     restart: unless-stopped
     logging:

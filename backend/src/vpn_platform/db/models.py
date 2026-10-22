@@ -164,6 +164,9 @@ class Plan(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     duration_days: Mapped[int] = mapped_column(Integer, nullable=False)
     traffic_limit_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    access_policy: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
     device_limit: Mapped[int] = mapped_column(Integer, nullable=False)
     price_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="RUB")
@@ -211,6 +214,9 @@ class Subscription(Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     traffic_limit_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    access_policy: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
     device_limit: Mapped[int] = mapped_column(Integer, nullable=False)
     server_groups: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     isolated_devices: Mapped[bool] = mapped_column(

@@ -24,6 +24,17 @@ does not deploy. Build output and source are retained for audit.
 For a mixed-version loopback gate, run
 `python3 infra/test_session_revocation.py NEW_SERVER_BINARY OLD_CLIENT_BINARY`.
 
+The build also includes `tariff-policy.patch` and `tariff_policy*.go`. Quotas
+and bandwidth are shared by paid subscription, using Remnawave's `t_id` as the
+authenticated Xray email. Enable only with the restricted publisher/receiver
+and persistent state directory configured. The core reports the exact applied
+policy SHA256 and health; publisher ACKs expire after 15 seconds. Unknown users
+are blocked until their policy is applied. The API waits before issuing links.
+See [tariff rollout](TARIFF-ROLLOUT-20261022.md) for timing, reservation semantics,
+single-node limits, and rollback requirements. Never remove the writable tariff
+mount or reset its state to regain quota. Bootstrap an empty state only before
+the first activation; preserve it through upgrades and machine restarts.
+
 Deployment requirements:
 
 The primary `infra/compose.node.yml` now contains the core mount and omits

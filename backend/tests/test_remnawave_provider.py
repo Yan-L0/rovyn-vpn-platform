@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -6,9 +7,29 @@ import pytest
 from vpn_platform.domain.vpn_provider import (
     AccountStatus,
     ProviderCapabilityUnavailable,
+    ProviderError,
     ProvisionUser,
 )
 from vpn_platform.providers.remnawave import RemnawaveProvider
+
+
+@pytest.mark.asyncio
+async def test_nested_traffic_counter_and_missing_accounting(monkeypatch):
+    provider = RemnawaveProvider("https://panel.example", "api-token")
+    read_user = AsyncMock(
+        return_value={"userTraffic": {"usedTrafficBytes": 12345}, "trafficLimitBytes": 0}
+    )
+    monkeypatch.setattr(provider, "_get_user", read_user)
+    try:
+        assert (await provider.get_usage("device")).used_bytes == 12345
+        read_user.return_value = {"userTraffic": {"usedTrafficBytes": 0}}
+        assert (await provider.get_usage("device")).used_bytes == 0
+        for invalid in ({}, {"userTraffic": {}}, {"usedTrafficBytes": -1}):
+            read_user.return_value = invalid
+            with pytest.raises(ProviderError):
+                await provider.get_usage("device")
+    finally:
+        await provider.close()
 
 
 def provision_user() -> ProvisionUser:

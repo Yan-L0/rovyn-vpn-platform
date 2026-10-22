@@ -24,7 +24,7 @@ from vpn_platform.domain.vpn_provider import (
     ProvisionUser,
     VPNProvider,
 )
-from vpn_platform.services.device_accounts import sync_device_access
+from vpn_platform.services.device_accounts import sync_device_access, usage_baseline
 
 
 @dataclass(frozen=True)
@@ -112,6 +112,11 @@ class ProvisioningService:
                 # Existing shared-link users opt in explicitly from their cabinet.
                 subscription.isolated_devices = previous.isolated_devices
             if previous is not None and previous.isolated_devices:
+                if subscription.access_policy:
+                    subscription.access_policy = {
+                        **subscription.access_policy,
+                        "usage_baseline": await usage_baseline(db, self._provider, previous),
+                    }
                 purchased_duration = subscription.expires_at - subscription.starts_at
                 subscription.expires_at = (
                     max(previous.expires_at, current_time) + purchased_duration
@@ -128,7 +133,9 @@ class ProvisioningService:
             external_key=str(order.id),
             username=f"vpn_{subscription.id.hex}",
             expire_at=subscription.expires_at,
-            traffic_limit_bytes=subscription.traffic_limit_bytes,
+            traffic_limit_bytes=0
+            if subscription.access_policy
+            else subscription.traffic_limit_bytes,
             device_limit=subscription.device_limit,
             server_group_ids=self._default_server_group_ids or subscription.server_groups,
             telegram_id=telegram_id,

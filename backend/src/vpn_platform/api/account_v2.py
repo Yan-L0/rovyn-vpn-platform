@@ -37,6 +37,7 @@ from vpn_platform.db.models import (
 from vpn_platform.domain.vpn_provider import ProviderError, VPNProvider
 from vpn_platform.providers.remnawave import RemnawaveNotFound
 from vpn_platform.services.device_accounts import device_rows, subscription_history
+from vpn_platform.services.transport_policy import policy_usage, wait_for_policy
 from vpn_platform.services.usage_sync import store_usage_points
 
 router = APIRouter(prefix="/api/v2", tags=["account-v2"])
@@ -111,11 +112,26 @@ async def subscription_access(
 
     subscription, plan, account = row
     provider = _provider(request)
+    core_used = await policy_usage(
+        getattr(getattr(request.app.state, "settings", None), "TARIFF_POLICY_ACK_PATH", ""),
+        subscription,
+    )
     if subscription.isolated_devices:
-        used = (await provider.get_usage(account.provider_user_id)).used_bytes
-        for device in await device_rows(db, subscription):
-            if device.provider_user_id:
-                used += (await provider.get_usage(device.provider_user_id)).used_bytes
+        used = core_used
+        if used is None:
+            baseline = (subscription.access_policy or {}).get("usage_baseline", {})
+            used = max(
+                0,
+                (await provider.get_usage(account.provider_user_id)).used_bytes
+                - baseline.get(account.provider_user_id, 0),
+            )
+            for device in await device_rows(db, subscription):
+                if device.provider_user_id:
+                    used += max(
+                        0,
+                        (await provider.get_usage(device.provider_user_id)).used_bytes
+                        - baseline.get(device.provider_user_id, 0),
+                    )
         response.headers["Cache-Control"] = "no-store"
         return SubscriptionAccessResponse(
             subscription_id=subscription.id,
@@ -152,6 +168,11 @@ async def subscription_access(
         )
 
     response.headers["Cache-Control"] = "no-store"
+    await wait_for_policy(
+        getattr(getattr(request.app.state, "settings", None), "TARIFF_POLICY_ACK_PATH", ""),
+        subscription,
+        account.provider_user_id,
+    )
     return SubscriptionAccessResponse(
         subscription_id=subscription.id,
         status=subscription.status.value,
@@ -162,8 +183,16 @@ async def subscription_access(
         expires_at=provider_user.expire_at,
         device_limit=subscription.device_limit,
         usage=SubscriptionUsageResponse(
-            used_bytes=usage.used_bytes,
-            traffic_limit_bytes=usage.traffic_limit_bytes,
+            used_bytes=core_used
+            if core_used is not None
+            else max(
+                0,
+                usage.used_bytes
+                - (subscription.access_policy or {})
+                .get("usage_baseline", {})
+                .get(account.provider_user_id, 0),
+            ),
+            traffic_limit_bytes=subscription.traffic_limit_bytes,
             upload_bytes=usage.upload_bytes,
             download_bytes=usage.download_bytes,
         ),

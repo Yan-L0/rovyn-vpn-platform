@@ -206,9 +206,7 @@ class OrderService:
             payment.confirmed_at = payment.confirmed_at or current_time
 
         order.status = (
-            OrderStatus.FULFILLED
-            if order.status == OrderStatus.FULFILLED
-            else OrderStatus.PAID
+            OrderStatus.FULFILLED if order.status == OrderStatus.FULFILLED else OrderStatus.PAID
         )
         order.paid_at = order.paid_at or current_time
 
@@ -248,6 +246,7 @@ class OrderService:
             "name": plan.name,
             "duration_days": plan.duration_days,
             "traffic_limit_bytes": plan.traffic_limit_bytes,
+            "access_policy": dict(plan.access_policy or {}),
             "device_limit": plan.device_limit,
             "server_groups": list(plan.server_groups),
             "price_minor": plan.price_minor,
@@ -273,7 +272,9 @@ class OrderService:
             starts_at=now,
             expires_at=now + timedelta(days=duration_days),
             traffic_limit_bytes=traffic_limit,
-            isolated_devices=self._personal_devices and traffic_limit == 0,
+            access_policy=dict(snapshot.get("access_policy", {})),
+            isolated_devices=self._personal_devices
+            and (traffic_limit == 0 or bool(snapshot.get("access_policy"))),
             device_limit=device_limit,
             server_groups=groups,
             public_token_digest=hashlib.sha256(token.encode()).digest(),

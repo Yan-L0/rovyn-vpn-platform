@@ -4,3 +4,4 @@ tests/
 .ruff_cache/
 *.py[cod]
 .DS_Store
+**/._*
