@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Probe actual subscription UDP paths with a disposable account; no secrets logged."""
 import json
+import ipaddress
 import os
 import secrets
 import signal
@@ -67,6 +68,9 @@ def stun(port, host, destination_port):
 
 
 def main():
+    bootstrap_ip = os.environ.get("E2E_BOOTSTRAP_IP", "")
+    if bootstrap_ip:
+        ipaddress.ip_address(bootstrap_ip)
     binary = os.environ.get("E2E_XRAY_BIN", "")
     binary_mount = []
     if binary:
@@ -90,6 +94,17 @@ def main():
         results = []
         with tempfile.TemporaryDirectory(prefix="rovyn-udp-") as directory:
             for index, config in enumerate(configs):
+                if bootstrap_ip:
+                    # Candidate test only: do not change production host records.
+                    for outbound in config["outbounds"]:
+                        if outbound.get("protocol") not in {"vless", "hysteria"}:
+                            continue
+                        settings = outbound["settings"]
+                        if "vnext" in settings:
+                            for peer in settings["vnext"]:
+                                peer["address"] = bootstrap_ip
+                        else:
+                            settings["address"] = bootstrap_ip
                 proxy = next(o for o in config["outbounds"] if o.get("tag") == "proxy")
                 network = proxy["streamSettings"]["network"]
                 flow = proxy.get("settings", {}).get("vnext", [{}])[0].get("users", [{}])[0].get("flow", "")

@@ -74,8 +74,11 @@ def main() -> int:
             raise RuntimeError(f"expected 3 links, got {len(links)}")
 
         transports: dict[str, tuple[str, str, dict[str, list[str]]]] = {}
+        expected_node_ip = os.environ.get("E2E_EXPECTED_NODE_IP", "")
         for link in links:
             parsed = urllib.parse.urlparse(link)
+            if expected_node_ip and parsed.hostname != expected_node_ip:
+                raise RuntimeError("subscription endpoint still depends on DNS")
             label = urllib.parse.unquote(parsed.fragment)
             query = urllib.parse.parse_qs(parsed.query)
             network = (
@@ -135,6 +138,16 @@ def main() -> int:
         recovered_networks: set[str] = set()
         for config in happ_configs:
             for outbound in config.get("outbounds", []):
+                if expected_node_ip and outbound.get("protocol") in {"vless", "hysteria"}:
+                    settings = outbound.get("settings", {})
+                    peers = settings.get("vnext", [settings])
+                    if not peers or any(p.get("address") != expected_node_ip for p in peers):
+                        raise RuntimeError("Happ primary or backup endpoint still depends on DNS")
+                    stream = outbound.get("streamSettings", {})
+                    security = stream.get("security", "")
+                    tls = stream.get(security + "Settings", {})
+                    if security not in {"tls", "reality"} or not tls.get("serverName") or tls.get("allowInsecure"):
+                        raise RuntimeError("Happ endpoint is missing verified TLS/REALITY name")
                 stream = outbound.get("streamSettings", {})
                 network = stream.get("network")
                 if network not in {"raw", "tcp", "xhttp"}:
@@ -167,6 +180,8 @@ def main() -> int:
             raise RuntimeError("Happ routing header differs from v2RayTun")
 
         print("subscription_links=3/3")
+        if expected_node_ip:
+            print("subscription_bootstrap=IP primary_and_backup tls_names=preserved")
         print("subscription_refresh_happ=1h")
         print("subscription_refresh_v2raytun=1h")
         print("raw_reality=valid")

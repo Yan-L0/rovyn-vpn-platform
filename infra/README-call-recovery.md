@@ -25,6 +25,30 @@ No Provider-ID-only Happ headers are assumed to work. OS sleep, app termination,
 startup VPN permissions, and desktop HTTP-proxy-only mode still need client-side
 handling. Desktop voice applications need VPN/TUN capture, not just an HTTP proxy.
 
+## Endpoint bootstrap without DNS
+
+`configure_node_bootstrap.py --domain <current-node-domain> --address <public-node-IP>`
+previews a narrow update to the three `ROVYN_` transport hosts. Add `--apply` to
+save a private rollback snapshot and change only their connection addresses.
+Explicit TLS/REALITY SNI must already be present and must not derive from the
+address. Certificates and their verification stay enabled. Backups injected by
+the recovery templates inherit these host addresses too.
+
+This removes the need to resolve the node's own hostname before connecting to
+either transport. It does not remove DNS needed for destination websites, fix
+Happ's embedded core, or provide another physical node. On a node IP migration,
+update the addresses again. Re-running the original provisioning script can
+restore hostname addresses: reapply bootstrap afterwards and verify outputs.
+Clients need to refresh the subscription and reconnect to use the new endpoints.
+
+Before publishing an address change, set `E2E_BOOTSTRAP_IP=<candidate-IP>` when
+running `probe_call_paths.py`; it changes only disposable client configurations.
+Repeat with `E2E_FORCE_PRIMARY_DOWN=1` to exercise fallback. After publication,
+run the probe without that override and run `verify_subscription_outputs.py`
+with `E2E_EXPECTED_NODE_IP=<published-IP>` to check URI links and every Happ
+primary/backup, including explicit TLS names. Restore using
+`configure_node_bootstrap.py --restore <snapshot>` if acceptance fails.
+
 Validation: `python3 infra/test_call_recovery_config.py` checks route ordering.
 On the panel, `probe_call_paths.py` creates a disposable user and launches isolated
 Xray clients using the actual subscription routing. It tests HTTPS and two public
