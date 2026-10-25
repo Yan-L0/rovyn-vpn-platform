@@ -35,6 +35,12 @@ single-node limits, and rollback requirements. Never remove the writable tariff
 mount or reset its state to regain quota. Bootstrap an empty state only before
 the first activation; preserve it through upgrades and machine restarts.
 
+Unchanged durable checkpoints are cached after successful file and directory
+sync (or a validated startup read). The one-second maintenance loop must not
+fsync an identical checkpoint while holding the shared traffic mutex. Changed
+quota reservations still sync before forwarding; changed FUP state still
+checkpoints. See [checkpoint investigation](TARIFF-CHECKPOINT-20261025.md).
+
 Deployment requirements:
 
 The primary `infra/compose.node.yml` now contains the core mount and omits

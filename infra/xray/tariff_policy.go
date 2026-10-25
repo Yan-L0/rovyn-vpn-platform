@@ -3,6 +3,7 @@ package dispatcher
 // Rovyn's policy is opt-in and local to a single node. All authenticated
 // credentials in a subscription share one limiter and one durable quota.
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -61,6 +62,8 @@ type tariffManager struct {
 	states  map[string]tariffState
 	healthy bool
 	digest  string
+	// Cache only a checkpoint that completed both file and directory fsync.
+	persistedState []byte
 }
 
 var tariffOnce sync.Once
@@ -76,6 +79,9 @@ func localTariffs() *tariffManager {
 		// The deployment creates an empty state file before first activation.
 		data, err := os.ReadFile(path + ".state")
 		m.healthy = err == nil && json.Unmarshal(data, &m.states) == nil && m.states != nil
+		if m.healthy {
+			m.persistedState = bytes.Clone(data)
+		}
 		m.reload()
 		tariffs = m
 		go func() {
@@ -227,6 +233,12 @@ func (m *tariffManager) persist() error {
 	if err != nil {
 		return err
 	}
+	// The timer also runs when every user is unlimited and no FUP bucket has
+	// changed. Do not fsync an identical historical checkpoint under the global
+	// traffic mutex: slow storage would stall unrelated live TCP/UDP transfers.
+	if bytes.Equal(data, m.persistedState) {
+		return nil
+	}
 	f, err := os.CreateTemp(filepath.Dir(m.path), ".tariff-state-*")
 	if err != nil {
 		return err
@@ -251,7 +263,11 @@ func (m *tariffManager) persist() error {
 		return err
 	}
 	defer dir.Close()
-	return dir.Sync()
+	if err = dir.Sync(); err != nil {
+		return err
+	}
+	m.persistedState = data
+	return nil
 }
 
 func (m *tariffManager) take(ctx context.Context, email string, size int, down bool) error {

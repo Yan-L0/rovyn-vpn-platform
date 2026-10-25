@@ -153,6 +153,94 @@ func TestTariffPersistenceFailureDeniesTraffic(t *testing.T) {
 	}
 }
 
+func TestTariffUnchangedCheckpointDoesNotTouchDisk(t *testing.T) {
+	m := testTariffs(t, 0, 0)
+	if err := m.persist(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(m.path + ".state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 10; i++ {
+		m.reload()
+		if err := m.take(context.Background(), "phone", tariffBurst, true); err != nil {
+			t.Fatal(err)
+		}
+		if err := m.persist(); err != nil {
+			t.Fatal(err)
+		}
+		after, err := os.Stat(m.path + ".state")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !os.SameFile(before, after) {
+			t.Fatal("unchanged unlimited traffic rewrote the checkpoint")
+		}
+	}
+}
+
+func TestTariffChangedReservationStillPersistsBeforeDelivery(t *testing.T) {
+	m := testTariffs(t, 3*quotaReservation, 0)
+	if err := m.take(context.Background(), "phone", 1, true); err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.Stat(m.path + ".state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.take(context.Background(), "tv", quotaReservation, false); err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.Stat(m.path + ".state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(m.path + ".state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state map[string]tariffState
+	if err := json.Unmarshal(data, &state); err != nil {
+		t.Fatal(err)
+	}
+	if os.SameFile(first, second) || state["subscription"].Reserved < quotaReservation+1 {
+		t.Fatal("changed quota reservation was not durably checkpointed")
+	}
+	// A prior successful checkpoint must not mask a subsequent storage error.
+	m.path = filepath.Join(t.TempDir(), "missing", "policy.json")
+	if m.take(context.Background(), "phone", quotaReservation, false) == nil || m.healthy {
+		t.Fatal("new reservation bypassed a persistence failure")
+	}
+}
+
+func TestTariffChangedFUPBucketIsCheckpointed(t *testing.T) {
+	m := testTariffs(t, 0, 0)
+	m.groups["subscription"].Rule.FUP = true
+	if err := m.persist(); err != nil {
+		t.Fatal(err)
+	}
+	m.delivered("phone", 1234)
+	if err := m.persist(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(m.path + ".state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var state map[string]tariffState
+	if err := json.Unmarshal(data, &state); err != nil {
+		t.Fatal(err)
+	}
+	var delivered int64
+	for _, b := range state["subscription"].Buckets {
+		delivered += b.Bytes
+	}
+	if delivered != 1234 {
+		t.Fatal("checkpoint cache lost changed FUP accounting")
+	}
+}
+
 type tariffSink struct{ Writes int }
 
 func (s *tariffSink) WriteMultiBuffer(mb buf.MultiBuffer) error {

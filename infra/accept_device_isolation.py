@@ -296,6 +296,7 @@ async def main():
                         udp.close()
                     datagrams.clear()
                     for port in range(12880,12886):
+                        print(f"new_paid_period_probe_port={port}", flush=True)
                         sock=await asyncio.to_thread(tunnel,port)
                         sessions.append(sock)
                         assert await asyncio.to_thread(request204,sock)
