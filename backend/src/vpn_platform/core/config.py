@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     BOT_OWNER_TELEGRAM_IDS: str = ""
 
     RESEND_API_KEY: SecretStr = SecretStr("")
-    EMAIL_FROM: str = "NOVA VPN <login@auth.yanlo.biz>"
+    EMAIL_FROM: str = "Rovyn VPN <login@auth.yanlo.biz>"
     EMAIL_AUTH_CODE_TTL_SECONDS: Annotated[int, Field(ge=300, le=1800)] = 600
 
     VPN_PROVIDER: ProviderName = ProviderName.REMNAWAVE

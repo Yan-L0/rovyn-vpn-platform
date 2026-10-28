@@ -772,7 +772,7 @@ body.cabinet-body {
   .purchase-period > strong { font-size: 26px; }
 }
 
-/* The first cabinet frame must match the animated NOVA canvas. */
+/* The first cabinet frame must match the animated Rovyn canvas. */
 body.cabinet-body {
   background:
     radial-gradient(ellipse 72% 48% at 10% 7%, rgba(76, 205, 187, .34), transparent 72%),

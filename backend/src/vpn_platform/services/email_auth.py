@@ -68,10 +68,10 @@ class EmailAuthService:
                 json={
                     "from": self.sender,
                     "to": [email],
-                    "subject": f"{code} — код входа в NOVA VPN",
-                    "text": f"Код входа в NOVA VPN: {code}. Он действует 10 минут.",
+                    "subject": f"{code} — код входа в Rovyn VPN",
+                    "text": f"Код входа в Rovyn VPN: {code}. Он действует 10 минут.",
                     "html": (
-                        "<div style='font-family:Arial,sans-serif'><h2>NOVA VPN</h2>"
+                        "<div style='font-family:Arial,sans-serif'><h2>Rovyn VPN</h2>"
                         "<p>Код входа:</p>"
                         "<p style='font-size:32px;font-weight:700;letter-spacing:8px'>"
                         f"{code}</p><p>Код действует 10 минут. "

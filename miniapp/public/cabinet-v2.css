@@ -128,7 +128,7 @@ body::before {
     radial-gradient(circle at 48% 86%, rgba(53, 220, 203, .28) 0 10%, rgba(26, 159, 148, .13) 24%, transparent 43%);
   animation: ambient-drift 18s var(--ease) infinite alternate;
 }
-/* Overscroll canvas must be the same NOVA canvas as .shell, never a fallback color. */
+/* Overscroll canvas must be the same Rovyn canvas as .shell, never a fallback color. */
 html, body {
   background:
     linear-gradient(135deg, rgba(29, 142, 133, .7), rgba(9, 45, 42, .94) 31%, rgba(7, 32, 31, .97) 66%, rgba(24, 145, 136, .72)),
@@ -4160,3 +4160,56 @@ body.biorg-cabinet .shell {
 .device-input { display: grid; gap: 10px; margin-top: 20px; text-align: left; }
 .device-input input { width: 100%; box-sizing: border-box; padding: 15px; border: 1px solid #738b80; border-radius: 16px; background: #edf1e7; color: #09241f; font: inherit; font-size: 16px; }
 .action-sheet button:disabled { opacity: .55; cursor: wait; }
+
+/* Rovyn: readable chrome and compact, aligned tariff specifications. */
+.shell .chrome .section-label {
+  color:#edf6ee;
+  opacity:1;
+  font-weight:650;
+  letter-spacing:.12em;
+  text-shadow:0 1px 8px rgba(0,30,27,.25);
+}
+.shell .chrome .brand { min-width:0; letter-spacing:.12em; }
+.shell .page-title h2 { line-height:1.02; text-wrap:balance; }
+.shell .page-title > p:last-child { color:#c8ded7; }
+.plans-grid { align-items:stretch; }
+.shell .tariff-card { min-width:0; gap:0; padding:clamp(24px,2.8vw,38px); }
+.shell .tariff-card > strong { line-height:1.08; font-variant-numeric:tabular-nums; }
+.shell .tariff-card > small { min-height:1.5em; line-height:1.5; color:#555d50; }
+.shell .tariff-card > span { color:#555d50; }
+.shell .tariff-card.dark > span,
+.shell .tariff-card.dark > small { color:#bac4b7; }
+.shell .tariff-terms {
+  width:100%; margin:22px 0 0; padding:0 58px 0 0;
+  font-size:clamp(13px,1.3vw,17px); font-weight:600; line-height:1.6;
+  letter-spacing:-.025em; text-wrap:balance;
+}
+.shell .tariff-card > i { right:24px; bottom:24px; width:44px; height:44px; }
+.payment-policy { color:#cadbd2; font-size:13px; line-height:1.65; margin:18px 0; }
+.payment-plan-summary > div { min-width:0; }
+.payment-plan-summary strong { overflow-wrap:anywhere; }
+.payment-plan-summary > strong { flex-shrink:0; }
+.profile-identity-copy, .account-card button > span, .timeline-row p { min-width:0; }
+.account-card button strong, .timeline-row strong { overflow-wrap:anywhere; }
+.shell input, .shell select, .shell textarea { max-width:100%; }
+.shell button:focus-visible, .shell a:focus-visible {
+  outline:3px solid #eef5da; outline-offset:4px;
+}
+@media (max-width:640px) {
+  .shell .page-title h2 { font-size:clamp(36px,10vw,60px); letter-spacing:-.055em; }
+  .shell .chrome .section-label { font-size:10px; letter-spacing:.09em; }
+  .shell .tariff-card, .shell .tariff-card:last-child { min-height:250px; }
+  .shell .tariff-terms { font-size:16px; }
+  .payment-plan-summary { flex-wrap:wrap; gap:12px; }
+  .payment-plan-summary > strong { font-size:26px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .shell .tariff-card { transition:none; }
+  .shell .tariff-card:hover { transform:none; }
+}
+@media (max-width:400px) {
+  .shell.browser-embedded .chrome { grid-template-columns:auto minmax(0,1fr) auto; gap:8px; }
+  .shell.browser-embedded .chrome .brand { gap:6px; font-size:14px; letter-spacing:.06em; }
+  .shell.browser-embedded .chrome .brand i { width:14px; height:14px; border-width:4px; }
+  .shell.browser-embedded .chrome .section-label { font-size:9px; letter-spacing:.04em; }
+}

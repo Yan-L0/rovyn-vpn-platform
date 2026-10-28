@@ -50,19 +50,19 @@ const telegramLaunchUrl = (import.meta.env.VITE_TELEGRAM_LAUNCH_URL as string | 
   ?? 'https://t.me/product_vpn'
 
 const previewMe: Me = {
-  user: { id: 'preview-user', telegram_id: 100000001, display_name: 'Пользователь', locale: 'ru', email: 'hello@nova.vpn' },
+  user: { id: 'preview-user', telegram_id: 100000001, display_name: 'Пользователь', locale: 'ru', email: 'hello@rovyn.example' },
   wallet_balance_minor: 0,
   wallet_currency: 'RUB',
   referral_code: 'ROVYN-PREVIEW',
-  subscription: { status: 'active', plan_name: 'NOVA Год', expires_at: '2027-07-21T12:00:00Z', traffic_limit_bytes: 0, device_limit: 5, used_bytes: 20_079_054_848 },
+  subscription: { status: 'active', plan_name: 'Rovyn Год', expires_at: '2027-07-21T12:00:00Z', traffic_limit_bytes: 0, device_limit: 5, used_bytes: 20_079_054_848 },
 }
 const previewPlans: Plan[] = [
-  { id: 'preview-month', code: 'MONTH', name: 'NOVA Месяц', description: '25 ГБ на весь срок · до 70 Мбит/с', duration_days: 30, traffic_limit_bytes: 25 * 1024 ** 3, device_limit: 5, price_minor: 11_100, currency: 'RUB', server_groups: [] },
-  { id: 'preview-year', code: 'YEAR', name: 'NOVA Год', description: 'Безлимитный трафик. При среднем скачивании выше 100 Мбит/с за 10 минут — до 100 Мбит/с. Восстановление после 15 минут нагрузки ниже 10 Мбит/с.', duration_days: 365, traffic_limit_bytes: 0, device_limit: 5, price_minor: 96_000, currency: 'RUB', server_groups: [] },
-  { id: 'preview-half', code: 'HALF_YEAR', name: 'NOVA Полгода', description: '200 ГБ на весь срок · до 100 Мбит/с', duration_days: 180, traffic_limit_bytes: 200 * 1024 ** 3, device_limit: 5, price_minor: 56_000, currency: 'RUB', server_groups: [] },
+  { id: 'preview-month', code: 'MONTH', name: 'Rovyn Месяц', description: '25 ГБ на весь срок · до 70 Мбит/с', duration_days: 30, traffic_limit_bytes: 25 * 1024 ** 3, device_limit: 5, price_minor: 11_100, currency: 'RUB', server_groups: [] },
+  { id: 'preview-year', code: 'YEAR', name: 'Rovyn Год', description: 'Безлимитный трафик. При среднем скачивании выше 100 Мбит/с за 10 минут — до 100 Мбит/с. Восстановление после 15 минут нагрузки ниже 10 Мбит/с.', duration_days: 365, traffic_limit_bytes: 0, device_limit: 5, price_minor: 96_000, currency: 'RUB', server_groups: [] },
+  { id: 'preview-half', code: 'HALF_YEAR', name: 'Rovyn Полгода', description: '200 ГБ на весь срок · до 100 Мбит/с', duration_days: 180, traffic_limit_bytes: 200 * 1024 ** 3, device_limit: 5, price_minor: 56_000, currency: 'RUB', server_groups: [] },
 ]
 const previewAccess: SubscriptionAccess = {
-  subscription_id: 'preview', status: 'active', provider_status: 'ACTIVE', plan_name: 'NOVA Год', subscription_url: 'https://example.invalid/sub/preview', starts_at: '2026-07-21T12:00:00Z', expires_at: '2027-07-21T12:00:00Z', device_limit: 5,
+  subscription_id: 'preview', status: 'active', provider_status: 'ACTIVE', plan_name: 'Rovyn Год', subscription_url: 'https://example.invalid/sub/preview', starts_at: '2026-07-21T12:00:00Z', expires_at: '2027-07-21T12:00:00Z', device_limit: 5,
   usage: { used_bytes: 20_079_054_848, traffic_limit_bytes: 0, upload_bytes: 4_294_967_296, download_bytes: 15_784_087_552 },
 }
 const previewTraffic: YearlyUsage = {
@@ -120,7 +120,7 @@ function remainingDays(value: string | undefined): number {
 }
 
 function initials(name: string): string {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') || 'N'
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') || 'R'
 }
 
 function planLabel(days: number): string {
@@ -136,6 +136,12 @@ function discount(days: number): string | null {
   if (days >= 170) return '−16%'
   if (days >= 80) return '−10%'
   return null
+}
+
+function planSpecs(plan: Plan): string {
+  const traffic = plan.traffic_limit_bytes === 0 ? '∞' : `${Math.round(plan.traffic_limit_bytes / 1024 ** 3)} ГБ`
+  const speed = plan.code === 'MONTH' ? '70 Мбит/с' : plan.code === 'HALF_YEAR' ? '100 Мбит/с' : plan.code === 'YEAR' ? '∞' : null
+  return speed ? `${traffic} / ${speed}` : traffic
 }
 
 function planRank(plan: Plan): number {
@@ -290,6 +296,9 @@ export default function CabinetV2() {
       }
     }
     const onHash = () => {
+      setPaymentPlan(null)
+      setModal(null)
+      setModalClosing(false)
       setView(initialView())
       window.scrollTo({ top: 0, behavior: 'auto' })
     }
@@ -662,7 +671,7 @@ export default function CabinetV2() {
   const maxUsage = Math.max(1, ...(traffic?.months.map((month) => month.used_bytes) ?? [1]))
   const telegramUser = window.Telegram?.WebApp.initDataUnsafe?.user
   const telegramDisplayName = [telegramUser?.first_name, telegramUser?.last_name].filter(Boolean).join(' ').trim()
-  const displayName = telegramDisplayName || me.user.display_name || 'Пользователь NOVA'
+  const displayName = telegramDisplayName || me.user.display_name || 'Пользователь Rovyn'
   const telegramPhoto = telegramUser?.photo_url
   const profileNameClass = displayName.length > 24 ? 'is-very-long' : displayName.length > 12 ? 'is-long' : displayName.length > 8 ? 'is-medium' : ''
   const availableDeviceSlots = Math.max(0, limit - devices.length)
@@ -675,7 +684,7 @@ export default function CabinetV2() {
       <SvgSprite />
       <main className={`shell ${embedded ? 'telegram-embedded' : 'browser-embedded'}`}>
         <header className="chrome">
-          <button className="brand" onClick={() => navigate('home')} aria-label="NOVA"><i /><span>NOVA</span></button>
+          <button className="brand" onClick={() => navigate('home')} aria-label="Rovyn"><i /><span>Rovyn</span></button>
           <p className="section-label">Личный кабинет</p>
           <button className="avatar" onClick={() => navigate('profile')} aria-label="Открыть профиль">{telegramPhoto ? <img src={telegramPhoto} alt="" /> : initials(displayName)}</button>
         </header>
@@ -725,7 +734,7 @@ export default function CabinetV2() {
 
         <section className={`screen ${view === 'plans' ? 'is-visible' : ''}`}>
           <header className="page-title"><p className="kicker">Тарифы</p><h2>Выберите свой<br />ритм.</h2><p>До пяти устройств. Трафик общий на весь оплаченный срок.</p></header>
-          {sortedPlans.length ? <div className="plans-grid">{sortedPlans.map((plan) => <button key={plan.id} className={`tariff-card ${planCardClass(plan)}`} data-bg={planBackground(plan)} data-discount={discount(plan.duration_days) ?? undefined} onClick={() => { setPaymentPlan(plan); setPayment(null); setPaymentError(null) }}><span>{planLabel(plan.duration_days)}</span><strong>{formatMoney(plan.price_minor, plan.currency)}</strong><small>{plan.duration_days >= 60 ? `${formatMoney(monthlyPriceMinor(plan), plan.currency)} в месяц` : 'Оплата за весь срок'}</small><p className="tariff-terms">{plan.description}</p><i><Icon name="arrow" /></i></button>)}</div> : <div className="empty-state">Тарифы временно недоступны. Попробуйте обновить кабинет.</div>}
+          {sortedPlans.length ? <div className="plans-grid">{sortedPlans.map((plan) => <button key={plan.id} className={`tariff-card ${planCardClass(plan)}`} data-bg={planBackground(plan)} data-discount={discount(plan.duration_days) ?? undefined} onClick={() => { setPaymentPlan(plan); setPayment(null); setPaymentError(null) }}><span>{planLabel(plan.duration_days)}</span><strong>{formatMoney(plan.price_minor, plan.currency)}</strong><small>{plan.duration_days >= 60 ? `${formatMoney(monthlyPriceMinor(plan), plan.currency)} в месяц` : '\u00a0'}</small><p className="tariff-terms" aria-label={`Трафик и скорость: ${planSpecs(plan)}`}>{planSpecs(plan)}</p><i><Icon name="arrow" /></i></button>)}</div> : <div className="empty-state">Тарифы временно недоступны. Попробуйте обновить кабинет.</div>}
         </section>
 
         <section className={`screen ${view === 'devices' ? 'is-visible' : ''}`}>
@@ -843,7 +852,7 @@ function FaqButton({ index, title, copy, setModal }: { index: string; title: str
 
 function PaymentModal({ plan, payment, busy, error, close, closing, submit, refocus }: { plan: Plan; payment: CheckoutOrder | null; busy: boolean; error: string | null; close: () => void; closing: boolean; submit: () => void; refocus: React.MutableRefObject<HTMLElement | null> }) {
   const paid = payment?.status === 'paid' || payment?.payment_status === 'succeeded'
-  return <div className={`payment-layer is-open ${closing ? 'is-closing' : ''}`}><button className="payment-scrim" type="button" onClick={close} aria-label="Закрыть оплату" /><section className="payment-sheet modal-surface" role="dialog" aria-modal="true" aria-labelledby="payment-title" tabIndex={-1} ref={(node) => { refocus.current = node }}><div className="modal-grabber" aria-hidden="true"><i /></div><div className="modal-toolbar"><span className="modal-brand">N</span><div className="payment-steps"><span className="is-current">01</span><i /><span>02</span></div><button className="modal-close" onClick={close} aria-label="Закрыть оплату"><Icon name="close" /></button></div><div className="modal-intro"><p className="kicker">Подключение тарифа</p><h2>{paid ? 'Готово.' : 'Почти готово.'}</h2></div><div className="payment-plan-summary"><div><small>Выбранный тариф</small><strong id="payment-title">{plan.name}</strong></div><strong>{formatMoney(plan.price_minor, plan.currency)}</strong></div><div className="payment-method"><span className="sbp-mark">СБП</span><div><strong>Система быстрых платежей</strong><small>YooKassa · без сохранения карты</small></div><b>✓</b></div><div className="payment-benefits"><span>{formatTrafficLimit(plan.traffic_limit_bytes)} трафика</span><span>До {plan.device_limit} устройств</span><span>Активация сразу</span></div>{error && <p className="modal-error" role="alert">{error}</p>}<div className="modal-actions"><button className={`payment-submit ${busy ? 'is-loading' : ''}`} disabled={busy || paid} onClick={submit}>{paid ? 'Подписка оплачена' : payment ? 'Открыть оплату ещё раз' : 'Оплатить через СБП'} <Icon name="arrow" /></button><button className="modal-secondary" onClick={close}>Вернуться к тарифам</button></div><small className="modal-note">Платёж создаётся в YooKassa. Данные карты не сохраняются в NOVA.</small></section></div>
+  return <div className={`payment-layer is-open ${closing ? 'is-closing' : ''}`}><button className="payment-scrim" type="button" onClick={close} aria-label="Закрыть оплату" /><section className="payment-sheet modal-surface" role="dialog" aria-modal="true" aria-labelledby="payment-title" tabIndex={-1} ref={(node) => { refocus.current = node }}><div className="modal-grabber" aria-hidden="true"><i /></div><div className="modal-toolbar"><span className="modal-brand">R</span><div className="payment-steps"><span className="is-current">01</span><i /><span>02</span></div><button className="modal-close" onClick={close} aria-label="Закрыть оплату"><Icon name="close" /></button></div><div className="modal-intro"><p className="kicker">Подключение тарифа</p><h2>{paid ? 'Готово.' : 'Почти готово.'}</h2></div><div className="payment-plan-summary"><div><small>Выбранный тариф</small><strong id="payment-title">{plan.name}</strong></div><strong>{formatMoney(plan.price_minor, plan.currency)}</strong></div><div className="payment-method"><span className="sbp-mark">СБП</span><div><strong>Система быстрых платежей</strong><small>YooKassa · без сохранения карты</small></div><b>✓</b></div><div className="payment-benefits"><span>{formatTrafficLimit(plan.traffic_limit_bytes)} трафика</span><span>До {plan.device_limit} устройств</span><span>Активация сразу</span></div><p className="payment-policy">{plan.description}</p>{error && <p className="modal-error" role="alert">{error}</p>}<div className="modal-actions"><button className={`payment-submit ${busy ? 'is-loading' : ''}`} disabled={busy || paid} onClick={submit}>{paid ? 'Подписка оплачена' : payment ? 'Открыть оплату ещё раз' : 'Оплатить через СБП'} <Icon name="arrow" /></button><button className="modal-secondary" onClick={close}>Вернуться к тарифам</button></div><small className="modal-note">Платёж создаётся в YooKassa. Данные карты не сохраняются в Rovyn.</small></section></div>
 }
 
 function ActionModal({ modal, close, closing, refocus }: { modal: NonNullable<ModalState>; close: () => void; closing: boolean; refocus: React.MutableRefObject<HTMLElement | null> }) {
@@ -871,7 +880,7 @@ function ActionModal({ modal, close, closing, refocus }: { modal: NonNullable<Mo
     <button className="action-scrim" type="button" disabled={busy} onClick={close} aria-label="Закрыть окно" />
     <section className="action-sheet modal-surface" role="dialog" aria-modal="true" aria-labelledby="action-title" tabIndex={-1} ref={(node) => { refocus.current = node }}>
       <div className="modal-grabber" aria-hidden="true"><i /></div>
-      <div className="modal-toolbar"><span className="modal-brand">N</span><span className="modal-context">Сервис NOVA</span><button className="modal-close" disabled={busy} onClick={close} aria-label="Закрыть окно"><Icon name="close" /></button></div>
+      <div className="modal-toolbar"><span className="modal-brand">R</span><span className="modal-context">Сервис Rovyn</span><button className="modal-close" disabled={busy} onClick={close} aria-label="Закрыть окно"><Icon name="close" /></button></div>
       <div className="action-sheet__content"><p className="kicker">{modal.kicker}</p><h2 id="action-title">{modal.title}</h2><p>{modal.copy}</p>
         {modal.inputLabel && <label className="device-input"><span>{modal.inputLabel}</span><input value={value} maxLength={128} disabled={busy} onChange={(event) => setValue(event.target.value)} placeholder="Мой телефон" /></label>}
         {modal.link && <label className="device-input"><span>Ссылка для Happ</span><input readOnly value={modal.link} onFocus={(event) => event.currentTarget.select()} /></label>}

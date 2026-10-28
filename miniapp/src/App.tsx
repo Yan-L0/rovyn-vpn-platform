@@ -128,9 +128,9 @@ function maskSubscriptionUrl(value: string): string {
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <span className={`brand ${compact ? 'compact' : ''}`} aria-label="NOVA VPN">
+    <span className={`brand ${compact ? 'compact' : ''}`} aria-label="Rovyn VPN">
       <span className="brand-symbol"><span /><span /></span>
-      {!compact && <span>NOVA</span>}
+      {!compact && <span>Rovyn</span>}
     </span>
   )
 }
@@ -168,7 +168,7 @@ function PublicSite() {
   return (
     <div className="public-site">
       <header className="site-header">
-        <a href="#top" className="brand-link" aria-label="NOVA VPN — на главную"><Brand /></a>
+        <a href="#top" className="brand-link" aria-label="Rovyn VPN — на главную"><Brand /></a>
         <nav className={menuOpen ? 'open' : ''} aria-label="Основная навигация">
           <a href="#advantages" onClick={closeMenu}>Возможности</a>
           <a href="#how" onClick={closeMenu}>Подключение</a>
@@ -196,7 +196,7 @@ function PublicSite() {
             <div className="hero-note"><ShieldCheck /> Управление подпиской и устройствами в одном месте</div>
           </div>
 
-          <div className="hero-visual" aria-label="Пример личного кабинета NOVA VPN">
+          <div className="hero-visual" aria-label="Пример личного кабинета Rovyn VPN">
             <div className="glow-orbit orbit-one" />
             <div className="glow-orbit orbit-two" />
             <div className="floating-chip chip-speed"><Wifi /><span><small>Соединение</small><strong>Защищено</strong></span></div>
@@ -227,7 +227,7 @@ function PublicSite() {
 
         <section className="landing-section" id="advantages">
           <div className="section-heading split">
-            <div><span className="section-kicker">ПОЧЕМУ NOVA</span><h2>Просто пользоваться.<br />Легко управлять.</h2></div>
+            <div><span className="section-kicker">ПОЧЕМУ Rovyn</span><h2>Просто пользоваться.<br />Легко управлять.</h2></div>
             <p>Мы убрали регистрацию, длинные настройки и отдельные личные кабинеты. Всё управление находится в привычном Telegram.</p>
           </div>
           <div className="feature-grid">
@@ -300,8 +300,8 @@ function PublicSite() {
           <div className="cta-glow" />
           <Brand />
           <h2>Ваш интернет.<br /><em>Ваши правила.</em></h2>
-          <p>Откройте NOVA в Telegram и подготовьте первое устройство к подключению.</p>
-          <a className="button button-light" href={productUrl}>Открыть NOVA <ArrowRight /></a>
+          <p>Откройте Rovyn в Telegram и подготовьте первое устройство к подключению.</p>
+          <a className="button button-light" href={productUrl}>Открыть Rovyn <ArrowRight /></a>
         </section>
       </main>
 
@@ -309,7 +309,7 @@ function PublicSite() {
         <div><Brand /><p>Управляемая VPN-подписка для ваших устройств.</p></div>
         <div><strong>Продукт</strong><a href="#advantages">Возможности</a><a href="#pricing">Тарифы</a><a href="#how">Подключение</a></div>
         <div><strong>Помощь</strong><a href="#faq">Вопросы</a><a href={productUrl}>Поддержка в Telegram</a></div>
-        <div className="footer-meta"><span>© 2026 NOVA VPN</span><span>Первая версия продукта</span></div>
+        <div className="footer-meta"><span>© 2026 Rovyn VPN</span><span>Первая версия продукта</span></div>
       </footer>
     </div>
   )
@@ -364,11 +364,11 @@ function BrowserAuth() {
     <main className="auth-screen">
       <div className="auth-glow auth-glow-main" />
       <div className="auth-glow auth-glow-side" />
-      <a className="auth-logo" href="/" aria-label="NOVA VPN — на главную"><Brand /></a>
+      <a className="auth-logo" href="/" aria-label="Rovyn VPN — на главную"><Brand /></a>
       <section className="auth-card" aria-labelledby="auth-title">
         <div className="auth-card-shine" />
         <h1 id="auth-title">Добро пожаловать</h1>
-        <p>Войдите в NOVA с помощью</p>
+        <p>Войдите в Rovyn с помощью</p>
         <form onSubmit={submitEmail}>
           <label className="sr-only" htmlFor="auth-email">{challengeId ? 'Код из письма' : 'Email'}</label>
           <div className="auth-email-field">
@@ -391,7 +391,7 @@ function BrowserAuth() {
           </div>
         )}
       </section>
-      <footer className="auth-footer"><ShieldCheck /> Защищённый вход в NOVA VPN</footer>
+      <footer className="auth-footer"><ShieldCheck /> Защищённый вход в Rovyn VPN</footer>
     </main>
   )
 }
@@ -419,7 +419,7 @@ function Dashboard({ me, access, traffic, devices, liveError, onNavigate }: {
     <section className="reference-home">
       <div className={`subscription-notice ${providerActive ? 'active' : ''}`}>
         <span aria-hidden="true">{providerActive ? <Check /> : <Zap />}</span>
-        <p>{providerActive && expiry ? `Подписка NOVA активна до ${formatDate(expiry)}` : subscription ? 'Проверяем состояние подписки' : 'Продлите подписку, чтобы снова получить доступ ко всем функциям NOVA'}</p>
+        <p>{providerActive && expiry ? `Подписка Rovyn активна до ${formatDate(expiry)}` : subscription ? 'Проверяем состояние подписки' : 'Продлите подписку, чтобы снова получить доступ ко всем функциям Rovyn'}</p>
       </div>
       <div className="reference-account">
         <Brand />
@@ -699,7 +699,7 @@ function Connect({ subscriptionUrl, onNavigate }: { subscriptionUrl: string | nu
     <section className="setup-screen platform-detail-screen">
       <PagePill title={`Настроить на ${selectedPlatform.title}`} onBack={goBack} />
       <ol className="setup-steps">
-        <li><span>1</span><div><h2>Скачайте приложение {selectedPlatform.id === 'chrome' ? 'NOVA' : 'Happ'}</h2><p>Установите совместимое приложение из официального магазина или дистрибутива.</p><button type="button" disabled><Download />{selectedPlatform.note.includes('Store') || selectedPlatform.note.includes('Play') ? selectedPlatform.note : `Скачать для ${selectedPlatform.title}`}</button></div></li>
+        <li><span>1</span><div><h2>Скачайте приложение {selectedPlatform.id === 'chrome' ? 'Rovyn' : 'Happ'}</h2><p>Установите совместимое приложение из официального магазина или дистрибутива.</p><button type="button" disabled><Download />{selectedPlatform.note.includes('Store') || selectedPlatform.note.includes('Play') ? selectedPlatform.note : `Скачать для ${selectedPlatform.title}`}</button></div></li>
         <li><span>2</span><div><h2>Добавьте ключ-ссылку</h2><p>Скопируйте персональную ссылку VPN и импортируйте её на экране подключения.</p><div className="masked-key"><code>{subscriptionUrl ? maskSubscriptionUrl(subscriptionUrl) : 'Ссылка появится после активации подписки'}</code><button type="button" disabled={!subscriptionUrl} onClick={() => void copySubscriptionUrl()} aria-label="Скопировать ключ-ссылку">{copied ? <Check /> : <Copy />}</button></div>{copied && <small className="copy-success" role="status">Ссылка скопирована</small>}<button className="help-link" type="button" onClick={() => setShowImportHelp(true)}>Как импортировать ссылку?</button></div></li>
       </ol>
       {showImportHelp && <div className="support-modal-backdrop" role="presentation" onMouseDown={() => setShowImportHelp(false)}><article className="support-modal import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title" onMouseDown={(event) => event.stopPropagation()}><button className="support-modal-close" type="button" aria-label="Закрыть" onClick={() => setShowImportHelp(false)}><X /></button><h2 id="import-title">Как импортировать ссылку</h2><div className="import-demo"><span>+</span><i /><i /><i /></div><p>Вставьте ссылку на экране подключения в приложении VPN.</p><button className="reference-primary" type="button" onClick={() => setShowImportHelp(false)}>Понятно</button></article></div>}
@@ -762,7 +762,7 @@ function Referral({ me, onNavigate }: { me: Me; onNavigate: (view: View) => void
   const [linkType, setLinkType] = useState<'site' | 'telegram'>('site')
   const inviteLink = linkType === 'site'
     ? `${window.location.origin}/cabinet?invite=${me.referral_code}`
-    : `https://t.me/nova_vpn_bot?start=invite_${me.referral_code}`
+    : `${launchUrl.split('?')[0]}?start=invite_${encodeURIComponent(me.referral_code)}`
   async function copy() {
     await navigator.clipboard.writeText(inviteLink)
     window.Telegram?.WebApp.HapticFeedback?.impactOccurred('medium')
@@ -912,9 +912,9 @@ function LegalDocuments({ onBack }: { onBack: () => void }) {
       <PagePill title="Документы" onBack={onBack} />
       <article className="legal-document">
         <h1>Политика конфиденциальности</h1>
-        <small>Рабочая редакция для первой версии NOVA</small>
+        <small>Рабочая редакция для первой версии Rovyn</small>
         <h2>1. Общие положения</h2>
-        <p>NOVA обрабатывает только данные, необходимые для авторизации, управления подпиской, устройствами и обращениями в поддержку.</p>
+        <p>Rovyn обрабатывает только данные, необходимые для авторизации, управления подпиской, устройствами и обращениями в поддержку.</p>
         <h2>2. Какие данные используются</h2>
         <ul><li>идентификатор и имя профиля Telegram;</li><li>данные подписки, платежного статуса и подключённых устройств;</li><li>сообщения, которые пользователь самостоятельно отправляет в поддержку.</li></ul>
         <h2>3. Технические данные VPN</h2>
@@ -925,7 +925,7 @@ function LegalDocuments({ onBack }: { onBack: () => void }) {
       <article className="legal-document">
         <h1>Пользовательское соглашение</h1>
         <small>Черновик — требует проверки юристом</small>
-        <h2>1. Назначение сервиса</h2><p>NOVA предоставляет доступ к конфигурациям совместимых VPN-приложений при наличии активной подписки.</p>
+        <h2>1. Назначение сервиса</h2><p>Rovyn предоставляет доступ к конфигурациям совместимых VPN-приложений при наличии активной подписки.</p>
         <h2>2. Оплата и подписка</h2><p>Цена, срок и количество устройств показываются до оплаты. Автопродление не включается без отдельного согласия пользователя.</p>
         <h2>3. Ограничения</h2><p>Запрещено использовать сервис для спама, атак, распространения вредоносных программ и иных незаконных действий.</p>
         <h2>4. Поддержка</h2><p>Вопросы по подключению, оплате и возвратам принимаются через чат поддержки в личном кабинете.</p>
