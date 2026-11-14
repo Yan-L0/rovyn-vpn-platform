@@ -37,7 +37,8 @@ type ModalState = null | {
   action?: string
   onAction?: (value?: string) => void | Promise<void>
   inputLabel?: string
-  link?: string
+  singleAction?: boolean
+  mobileDeviceActions?: boolean
   secondaryAction?: string
   onSecondary?: () => void | Promise<void>
 }
@@ -574,12 +575,20 @@ export default function CabinetV2() {
     setModal({ kicker: 'Подключение', title: 'Ссылка скопирована.', copy: 'Откройте Happ или v2RayTun и импортируйте ссылку из буфера обмена.' })
   }
 
-  function showDeviceLink(link: string) {
+  function devicePageUrl(link: string, name: string) {
+    const url = new URL(link)
+    url.hash = new URLSearchParams({ rovynDevice: name }).toString()
+    return url.href
+  }
+
+  function showDeviceLink(link: string, name: string) {
+    const pageUrl = devicePageUrl(link, name)
     setModal({ kicker: 'Личная ссылка устройства', title: 'Подключение готово.',
-      copy: 'Импортируйте ссылку в Happ на одном устройстве. Для другого устройства создайте отдельное подключение.',
-      link, action: 'Скопировать ссылку', onAction: async () => {
-        await navigator.clipboard.writeText(link)
-        setModal((current) => current ? { ...current, copy: 'Ссылка скопирована. Откройте Happ и импортируйте её из буфера обмена.' } : null)
+      copy: 'Откройте страницу подписки, чтобы добавить подключение в Happ.',
+      singleAction: true, action: 'Перейти', onAction: () => {
+        const telegram = embedded ? window.Telegram?.WebApp : undefined
+        if (telegram?.openLink) telegram.openLink(pageUrl)
+        else window.open(pageUrl, '_blank', 'noopener,noreferrer')
       } })
   }
 
@@ -592,7 +601,7 @@ export default function CabinetV2() {
         if (visualPreview) { setModal(null); return }
         const result = await createDevice(name.trim(), requestId)
         await refreshLive()
-        showDeviceLink(result.subscription_url)
+        showDeviceLink(result.subscription_url, name.trim())
       } })
   }
 
@@ -609,15 +618,31 @@ export default function CabinetV2() {
 
   function openDevice(device: Device) {
     if (!device.managed) { offerDeviceMigration(); return }
-    setModal({ kicker: 'Устройство', title: shortDeviceName(device),
+    setModal({ kicker: 'Устройство', title: shortDeviceName(device), mobileDeviceActions: true,
       copy: device.status === 'revoking' ? 'Отключение ещё выполняется. Можно повторить запрос.' : 'Отзыв отключит это устройство. Другие устройства сохранят доступ.',
       action: device.status === 'active' ? 'Показать ссылку' : device.status === 'pending' ? 'Продолжить создание' : undefined,
       onAction: async () => {
+        if (device.status === 'active' && window.matchMedia('(max-width: 640px)').matches) {
+          const telegram = embedded ? window.Telegram?.WebApp : undefined
+          const tab = telegram?.openLink ? null : window.open('about:blank', '_blank')
+          if (tab) tab.opener = null
+          try {
+            const { subscription_url } = await loadDeviceLink(device.hardware_id)
+            const pageUrl = devicePageUrl(subscription_url, shortDeviceName(device))
+            if (telegram?.openLink) telegram.openLink(pageUrl)
+            else if (tab) tab.location.replace(pageUrl)
+            else window.location.assign(pageUrl)
+          } catch (error) {
+            tab?.close()
+            throw error
+          }
+          return
+        }
         const result = device.status === 'pending'
           ? await createDevice(device.model || 'Устройство', device.hardware_id)
           : await loadDeviceLink(device.hardware_id)
         await refreshLive()
-        showDeviceLink(result.subscription_url)
+        showDeviceLink(result.subscription_url, shortDeviceName(device))
       },
       secondaryAction: 'Отозвать устройство', onSecondary: () => removeDevice(device) })
   }
@@ -878,18 +903,19 @@ function ActionModal({ modal, close, closing, refocus }: { modal: NonNullable<Mo
   }
   return <div className={`action-layer is-open ${closing ? 'is-closing' : ''}`}>
     <button className="action-scrim" type="button" disabled={busy} onClick={close} aria-label="Закрыть окно" />
-    <section className="action-sheet modal-surface" role="dialog" aria-modal="true" aria-labelledby="action-title" tabIndex={-1} ref={(node) => { refocus.current = node }}>
+    <section className={`action-sheet modal-surface ${modal.mobileDeviceActions ? 'device-action-sheet' : ''} ${modal.singleAction ? 'single-action-sheet' : ''}`} role="dialog" aria-modal="true" aria-labelledby="action-title" tabIndex={-1} ref={(node) => { refocus.current = node }}>
       <div className="modal-grabber" aria-hidden="true"><i /></div>
       <div className="modal-toolbar"><span className="modal-brand">R</span><span className="modal-context">Сервис Rovyn</span><button className="modal-close" disabled={busy} onClick={close} aria-label="Закрыть окно"><Icon name="close" /></button></div>
       <div className="action-sheet__content"><p className="kicker">{modal.kicker}</p><h2 id="action-title">{modal.title}</h2><p>{modal.copy}</p>
         {modal.inputLabel && <label className="device-input"><span>{modal.inputLabel}</span><input value={value} maxLength={128} disabled={busy} onChange={(event) => setValue(event.target.value)} placeholder="Мой телефон" /></label>}
-        {modal.link && <label className="device-input"><span>Ссылка для Happ</span><input readOnly value={modal.link} onFocus={(event) => event.currentTarget.select()} /></label>}
         {error && <p className="modal-error" role="alert">{error}</p>}
       </div>
       <div className="modal-actions">
-        {modal.action && <button className="action-primary" disabled={busy} onClick={() => void run()}>{busy ? 'Выполняем…' : modal.action} <Icon name="arrow" /></button>}
-        {modal.secondaryAction && <button className="modal-secondary" disabled={busy} onClick={() => void run(true)}>{modal.secondaryAction}</button>}
-        <button className="modal-secondary" disabled={busy} onClick={close}>Закрыть</button>
+        {modal.action && <button className="action-primary" disabled={busy} onClick={() => void run()}>{busy ? 'Выполняем…' : modal.mobileDeviceActions && modal.action === 'Показать ссылку'
+          ? <><span className="device-desktop-label">{modal.action}</span><span className="device-mobile-label">Перейти</span></>
+          : modal.action} <Icon name="arrow" /></button>}
+        {modal.secondaryAction && <button className="modal-secondary" disabled={busy} onClick={() => void run(true)}>{modal.mobileDeviceActions ? <><span className="device-desktop-label">{modal.secondaryAction}</span><span className="device-mobile-label">Удалить устройство</span></> : modal.secondaryAction}</button>}
+        {!modal.singleAction && <button className="modal-secondary action-dismiss" disabled={busy} onClick={close}>Закрыть</button>}
       </div>
     </section>
   </div>

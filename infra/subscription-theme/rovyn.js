@@ -1,8 +1,11 @@
 const words={Subscription:'Rovyn',Username:'Имя пользователя',Status:'Статус',Active:'Активна',Expires:'Действует до',Bandwidth:'Трафик',Installation:'Установка','App Installation':'Установка приложения','Add Subscription':'Добавить подписку'};
 Object.assign(words, {
   Inactive: 'Неактивна',
+  Disabled: 'Доступ отключён',
+  Expired: 'Срок подписки истёк',
+  Limited: 'Лимит трафика исчерпан',
   "In the main section, click the large power button in the center to connect to VPN. Don't forget to select a server from the server list. If needed, choose another server from the server list.":
-    'В главном разделе нажмите большую кнопку включения в центре для подключения. Не забудьте выбрать сервер в списке серверов. При необходимости выберите другой сервер из списка серверов.', 
+    'В главном разделе нажмите большую кнопку включения в центре для подключения. Не забудьте выбрать сервер в списке серверов. При необходимости выберите другой сервер из списка серверов.',
   'Connect and use': 'Подключение и использование',
   'Choose the version for your device, click the button below and install the app.':
     'Выберите подходящую версию для вашего устройства, нажмите на кнопку ниже и установите приложение.',
@@ -34,6 +37,64 @@ function keepHappOnly() {
     }
   });
 }
+const deviceLabel = new URLSearchParams(window.location.hash.slice(1))
+  .get('rovynDevice')?.trim().slice(0, 128);
+
+let deviceId;
+let sharedUsage;
+let usageRequest;
+
+function refreshSharedUsage() {
+  if (!deviceId || usageRequest) return;
+  const linkKey = location.pathname.replace(/\/$/, '').split('/').pop();
+  usageRequest = fetch('https://bot.yanlo.biz/api/v2/subscription/device-usage', {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId, link_key: linkKey }),
+    cache: 'no-store',
+    credentials: 'omit',
+  }).then(response => response.ok ? response.json() : null)
+    .then(usage => { sharedUsage = usage; })
+    .catch(() => { sharedUsage = null; })
+    .finally(() => {
+      usageRequest = null;
+      refreshRovyn();
+    });
+}
+
+function displaySharedUsage() {
+  if (!deviceId) return;
+  const blocks = document.querySelectorAll('[class*="_infoBlock_"]');
+  for (const block of blocks) {
+    const lines = block.querySelectorAll('p');
+    if (lines[0]?.textContent.trim() !== 'Трафик' && lines[0]?.textContent.trim() !== 'Общий трафик' || !lines[1]) continue;
+    const format = bytes => `${new Intl.NumberFormat('ru', { maximumFractionDigits: 2 }).format(bytes / 2 ** 30)} ГБ`;
+    const used = sharedUsage?.used_bytes;
+    const limit = sharedUsage?.traffic_limit_bytes;
+    lines[0].textContent = 'Общий трафик';
+    lines[1].textContent = sharedUsage
+      ? `${used == null ? '—' : format(used)} / ${limit === 0 ? '∞' : format(limit)}`
+      : '—';
+  }
+}
+
+function formatDeviceNames() {
+  const card = document.querySelector('.mantine-Card-root:has([class*="_infoBlock_"])');
+  if (!card) return;
+  const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const match = node.nodeValue.trim().match(/^dev_([a-f0-9]{32})$/i);
+    if (match) {
+      if (!deviceId) {
+        deviceId = match[1];
+        refreshSharedUsage();
+      }
+      const shortId = match[1].slice(0, 8);
+      node.nodeValue = `${deviceLabel || 'Устройство'} · ${shortId}`;
+    }
+  }
+}
+
 function translate(){const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);while(w.nextNode()){const n=w.currentNode,t=n.nodeValue.trim();if(t.includes('для подключения к VPN.'))n.nodeValue=n.nodeValue.replace('для подключения к VPN.', 'для подключения.');else if(Object.hasOwn(words,t))n.nodeValue=n.nodeValue.replace(t,words[t]);else if(/^Expires in \d+ days?$/.test(t))n.nodeValue=n.nodeValue.replace(t,`Осталось дней: ${t.match(/\d+/)[0]}`)}}
 
 // Reflect the existing countdown, without guessing if the date is unavailable.
@@ -58,9 +119,31 @@ function updateExpiryAccent() {
   });
 }
 // Coalesce React updates into one pass and ignore our own text mutations.
+function displaySubscriptionStatus() {
+  for (const block of document.querySelectorAll('[class*="_infoBlock_"]')) {
+    const [label, value] = block.querySelectorAll('p');
+    if (label?.textContent.trim() !== 'Статус' || !value) continue;
+    const used = sharedUsage?.used_bytes;
+    const limit = sharedUsage?.traffic_limit_bytes;
+    if (limit > 0 && used != null && used >= limit && value.textContent.trim() === 'Активна') {
+      value.textContent = 'Лимит трафика исчерпан';
+    } else if (limit > 0 && used != null && used < limit &&
+               value.textContent === 'Лимит трафика исчерпан' && value.dataset.rovynQuota) {
+      value.textContent = 'Активна';
+    }
+    if (value.textContent === 'Лимит трафика исчерпан' && !block.matches('[class*="_red_"]')) {
+      value.dataset.rovynQuota = '1';
+    }
+    value.classList.toggle('rovyn-status-inactive', value.textContent.trim() !== 'Активна');
+  }
+}
+
 function refreshRovyn() {
   observer.disconnect();
   translate();
+  formatDeviceNames();
+  displaySharedUsage();
+  displaySubscriptionStatus();
   keepHappOnly();
   updateExpiryAccent();
   setupPlatformPicker();
@@ -150,3 +233,5 @@ document.addEventListener('pointerdown', event => {
 });
 const observer = new MutationObserver(refreshRovyn);
 refreshRovyn();
+
+window.setInterval(refreshSharedUsage, 30000);

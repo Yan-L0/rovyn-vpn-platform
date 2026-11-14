@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, cast
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 from sqlalchemy import delete, func, select
@@ -32,6 +33,7 @@ from vpn_platform.db.models import (
     SubscriptionStatus,
     SupportTicket,
     VpnAccount,
+    VpnDevice,
     VpnUsageDaily,
 )
 from vpn_platform.domain.vpn_provider import ProviderError, VPNProvider
@@ -84,6 +86,70 @@ async def _expire_local_subscription(db: DatabaseSession, subscription: Subscrip
     await db.commit()
 
 
+async def _provider_shared_usage(
+    db: DatabaseSession, provider: VPNProvider, subscription: Subscription, account: VpnAccount
+) -> int:
+    baseline = (subscription.access_policy or {}).get("usage_baseline", {})
+    used = max(
+        0,
+        (await provider.get_usage(account.provider_user_id)).used_bytes
+        - baseline.get(account.provider_user_id, 0),
+    )
+    for device in await device_rows(db, subscription):
+        if device.provider_user_id:
+            used += max(
+                0,
+                (await provider.get_usage(device.provider_user_id)).used_bytes
+                - baseline.get(device.provider_user_id, 0),
+            )
+    return used
+
+
+@router.post("/subscription/device-usage")
+async def device_subscription_usage(
+    request: Request,
+    response: Response,
+    db: DatabaseSession,
+) -> dict[str, int | None]:
+    try:
+        data = await request.json()
+        device_id = uuid.UUID(data["device_id"])
+        link_key = data["link_key"]
+        if not isinstance(link_key, str) or not 1 <= len(link_key) <= 128:
+            raise ValueError
+    except (ValueError, TypeError, KeyError, AttributeError) as error:
+        raise HTTPException(400, "Invalid device link") from error
+    row = (await db.execute(
+        select(VpnDevice, Subscription)
+        .join(Subscription, Subscription.id == VpnDevice.subscription_id)
+        .where(VpnDevice.id == device_id, VpnDevice.status == "active")
+    )).first()
+    if row is None or not row[0].provider_user_id:
+        raise HTTPException(404, "Device link not found")
+    device, subscription = row
+    try:
+        remote = await _provider(request).get_subscription_info(device.provider_user_id)
+    except RemnawaveNotFound as error:
+        raise HTTPException(404, "Device link not found") from error
+    url = urlsplit(remote.subscription_url or "")
+    expected_key = url.path.rstrip("/").rsplit("/", 1)[-1]
+    if not secrets.compare_digest(expected_key.encode(), link_key.encode()):
+        raise HTTPException(404, "Device link not found")
+    response.headers["Access-Control-Allow-Origin"] = f"{url.scheme}://{url.netloc}"
+    response.headers["Cache-Control"] = "private, no-store"
+    used = await policy_usage(request.app.state.settings.TARIFF_POLICY_ACK_PATH, subscription)
+    if used is None:
+        account = await db.scalar(
+            select(VpnAccount).where(VpnAccount.subscription_id == subscription.id)
+        )
+        if account is not None:
+            try:
+                used = await _provider_shared_usage(db, _provider(request), subscription, account)
+            except ProviderError:
+                pass
+    return {"used_bytes": used, "traffic_limit_bytes": subscription.traffic_limit_bytes}
+
+
 @router.get("/subscription/access", response_model=SubscriptionAccessResponse)
 async def subscription_access(
     request: Request,
@@ -119,19 +185,7 @@ async def subscription_access(
     if subscription.isolated_devices:
         used = core_used
         if used is None:
-            baseline = (subscription.access_policy or {}).get("usage_baseline", {})
-            used = max(
-                0,
-                (await provider.get_usage(account.provider_user_id)).used_bytes
-                - baseline.get(account.provider_user_id, 0),
-            )
-            for device in await device_rows(db, subscription):
-                if device.provider_user_id:
-                    used += max(
-                        0,
-                        (await provider.get_usage(device.provider_user_id)).used_bytes
-                        - baseline.get(device.provider_user_id, 0),
-                    )
+            used = await _provider_shared_usage(db, provider, subscription, account)
         response.headers["Cache-Control"] = "no-store"
         return SubscriptionAccessResponse(
             subscription_id=subscription.id,
