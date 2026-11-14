@@ -120,6 +120,8 @@ export interface AdminGrantResult {
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:8080'
 const CSRF_STORAGE_KEY = 'nova.csrf-token'
+let memoryCsrfToken = ''
+let csrfRecovery: Promise<string> | undefined
 
 function deviceMutation<T>(path: string, method: string, body?: object): Promise<T> {
   return request<T>(`/api/v2/device-accounts${path}`, {
@@ -134,6 +136,7 @@ export const loadDeviceLink = (id: string) => deviceMutation<{ subscription_url:
 export const revokeManagedDevice = (id: string) => deviceMutation<void>(`/${encodeURIComponent(id)}`, 'DELETE')
 
 function saveCsrfToken(token: string): void {
+  memoryCsrfToken = token
   try {
     window.sessionStorage.setItem(CSRF_STORAGE_KEY, token)
   } catch {
@@ -143,13 +146,24 @@ function saveCsrfToken(token: string): void {
 
 function csrfToken(): string {
   try {
-    return window.sessionStorage.getItem(CSRF_STORAGE_KEY) ?? ''
+    return window.sessionStorage.getItem(CSRF_STORAGE_KEY) ?? memoryCsrfToken
   } catch {
-    return ''
+    return memoryCsrfToken
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+function recoverCsrf(): Promise<string> {
+  csrfRecovery ??= request<{ csrf_token: string }>('/api/v1/auth/csrf', {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': 'refresh' },
+  }, false).then(({ csrf_token }) => {
+    saveCsrfToken(csrf_token)
+    return csrf_token
+  }).finally(() => { csrfRecovery = undefined })
+  return csrfRecovery
+}
+
+async function request<T>(path: string, init?: RequestInit, retryCsrf = true): Promise<T> {
   let response: Response
   try {
     response = await fetch(`${API_URL}${path}`, {
@@ -166,6 +180,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!response.ok) {
     const detail = await response.json().catch(() => ({ detail: 'Сервис временно недоступен' }))
+    if (response.status === 403 && detail.detail === 'invalid CSRF token' && retryCsrf) {
+      const token = await recoverCsrf()
+      return request<T>(path, {
+        ...init,
+        headers: { ...init?.headers, 'X-CSRF-Token': token },
+      }, false)
+    }
     throw new Error(typeof detail.detail === 'string' ? detail.detail : 'Сервис временно недоступен')
   }
   if (response.status === 204) return undefined as T
@@ -204,8 +225,10 @@ export async function createTelegramLink(): Promise<{ start_param: string; expir
   })
 }
 
-export function loadMe(): Promise<Me> {
-  return request('/api/v1/me')
+export async function loadMe(): Promise<Me> {
+  const me = await request<Me>('/api/v1/me')
+  await recoverCsrf()
+  return me
 }
 
 export function loadPlans(): Promise<Plan[]> {

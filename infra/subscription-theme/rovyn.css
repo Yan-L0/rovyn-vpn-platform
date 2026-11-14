@@ -1,0 +1,490 @@
+/* Background copied from production cabinet-v2.css?v=32. */
+html { background:#13766f; }
+body {
+  isolation:isolate;
+  background:#13766f;
+}
+body::before {
+    content:"";
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    pointer-events:none;
+    background:
+      radial-gradient(ellipse 92% 42% at 5% 7%,rgba(67,183,169,.5),transparent 72%),
+      radial-gradient(ellipse 90% 48% at 98% 94%,rgba(28,137,125,.42),transparent 74%),
+      linear-gradient(150deg,#197e76 0%,#0f5d58 45%,#14776f 100%);
+    background-color:#13766f;
+    opacity:1;
+    transform:none;
+    animation:none;
+    will-change:auto;
+}
+body #root { background:transparent; }
+body::after,
+body .shell::before,
+body .shell::after {
+    display:none;
+    animation:none;
+}
+body .shell {
+    background:transparent;
+    box-shadow:none;
+}
+
+#root,.animated-background{background:transparent!important}
+.header-wrapper{background:#0d514b!important}
+
+
+/* Cabinet-inspired local subscription design. */
+:root { --mantine-font-family: Arial, sans-serif; --mantine-font-family-headings: Arial, sans-serif; --mantine-color-text:#ffffff; --mantine-color-dimmed:#a8bbb7; }
+body,button,input,select,h1,h2,h3,h4,h5,h6,p { font-family:Arial,sans-serif!important; }
+.header-wrapper { background:transparent!important; border:0!important; box-shadow:none!important; }
+.header-wrapper h4 { color:#ffffff!important; font-weight:800; letter-spacing:.06em; }
+.mantine-Card-root {
+ background:rgba(3,23,20,.74)!important;
+ border:1px solid rgba(194,225,214,.18)!important;
+ border-radius:32px!important;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 24px 60px rgba(0,18,15,.18)!important;
+ backdrop-filter:blur(22px);
+ padding:clamp(22px,4vw,40px)!important;
+}
+.mantine-Card-root .mantine-Card-root {
+ background:transparent!important; border:0!important;
+ border-top:1px solid rgba(194,225,214,.15)!important;
+ border-radius:0!important; box-shadow:none!important; backdrop-filter:none;
+ padding:28px 0!important;
+}
+h4.mantine-Title-root { font-size:28px!important; letter-spacing:-.04em; }
+h5.mantine-Title-root { font-size:clamp(20px,3vw,30px)!important; letter-spacing:-.04em; overflow-wrap:anywhere; }
+h6.mantine-Title-root { font-size:20px!important; letter-spacing:-.025em; }
+[class*='_infoBlock_'] {
+ background:transparent!important; border:0!important;
+ border-radius:0!important; padding:16px 0!important;
+}
+[class*='_infoBlock_'] p { color:#a8bbb7!important; font-size:13px; }
+[class*='_infoBlock_'] p:last-child { color:#ffffff!important; font-size:17px; font-weight:600; }
+[class*='_infoBlock_'] svg { color:#8da9a3!important; }
+[class*='_appButton_'] {
+ background:rgba(3,23,20,.4)!important; color:#a8bbb7!important;
+ border:1px solid rgba(194,225,214,.16)!important;
+ border-radius:999px!important; min-height:48px;
+}
+[class*='_appButton_'] svg { display:none!important; }
+[class*='_appButton_'] * { color:inherit!important; }
+[class*='_appButtonActive_'] {
+ background:#123c32!important; color:#d1e0dd!important;
+ border-color:#8da9a3!important;
+}
+.mantine-Button-root {
+ background:#16483c!important; color:#ffffff!important;
+ border:1px solid rgba(198,211,154,.4)!important;
+ border-radius:999px!important; min-height:48px; padding-inline:24px!important;
+}
+.mantine-Button-root:hover { background:#205b4b!important; }
+.mantine-Button-root:disabled { opacity:.45; }
+.mantine-ThemeIcon-root { background:transparent!important; color:#8da9a3!important; border-color:rgba(198,211,154,.25)!important; }
+.mantine-NativeSelect-input { background:#0c3029!important; color:#ffffff!important; border:1px solid rgba(194,225,214,.2)!important; border-radius:999px!important; }
+button:focus-visible,a:focus-visible,select:focus-visible { outline:2px solid #8da9a3!important; outline-offset:4px; }
+@media(max-width:480px){ .mantine-Card-root{border-radius:26px!important;} .mantine-Button-root{padding-inline:18px!important;} }
+
+/* Reference: cabinet device timeline, adapted to subscription information. */
+.header-wrapper { padding:30px 0!important; }
+.header-wrapper > .mantine-Container-root { max-width:1500px!important; padding-inline:32px!important; }
+.header-wrapper > .mantine-Container-root > .mantine-Group-root { position:relative; min-height:70px; }
+.header-wrapper > .mantine-Container-root > .mantine-Group-root::after { content:'ПОДПИСКА'; position:absolute; left:50%; transform:translateX(-50%); color:#ffffff; font-size:15px; font-weight:750; letter-spacing:.15em; pointer-events:none; }
+.header-wrapper h4 { font-size:26px!important; letter-spacing:.12em!important; }
+.header-wrapper .mantine-Group-root > svg { display:none; }
+.header-wrapper .mantine-Group-root:has(> h4)::before { content:''; width:25px; height:25px; border:7px solid #ffffff; border-left-color:transparent; border-radius:50%; transform:rotate(-28deg); box-sizing:border-box; }
+.header-wrapper .mantine-ActionIcon-root { width:46px; height:46px; border-radius:50%; background:rgba(9,28,27,.6)!important; color:#ffffff!important; border:1px solid rgba(255,255,255,.16)!important; }
+
+/* Subscription summary: the original layout in the Rovyn cabinet palette. */
+.mantine-Card-root:has([class*='_infoBlock_']) {
+  background:rgba(9,28,27,.72)!important;
+  color:#fff;
+}
+.mantine-SimpleGrid-root:has(> [class*='_infoBlock_']) {
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+}
+[class*='_infoBlock_'] {
+  background:rgba(139,230,220,.055)!important;
+  border:1px solid rgba(194,225,214,.14)!important;
+  border-radius:15px!important;
+  padding:10px 12px!important;
+  min-width:0;
+}
+[class*='_infoBlock_'] .mantine-Group-root p { color:#a8bbb7!important; }
+[class*='_infoBlock_'] > .mantine-Stack-root > p {
+  color:#fff!important;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+@media(max-width:650px){
+  .header-wrapper { padding:14px 0!important; }
+  .header-wrapper h4 { font-size:20px!important; }
+  .header-wrapper > .mantine-Container-root { padding-inline:16px!important; }
+  .header-wrapper > .mantine-Container-root > .mantine-Group-root::after {
+    position:static; transform:none; order:3; width:100%; text-align:center; font-size:11px;
+  }
+  .header-wrapper .mantine-ActionIcon-root { width:38px; height:38px; }
+}
+@media(max-width:350px){
+  .mantine-SimpleGrid-root:has(> [class*='_infoBlock_']) { grid-template-columns:1fr!important; }
+}
+:root { --mantine-color-text:#fff; --mantine-color-white:#fff; }
+.header-wrapper h4,
+.header-wrapper > .mantine-Container-root > .mantine-Group-root::after,
+.header-wrapper .mantine-ActionIcon-root,
+.mantine-Button-root,
+.mantine-NativeSelect-input { color:#fff!important; }
+.header-wrapper .mantine-Group-root:has(> h4)::before { border-color:#fff; border-left-color:transparent; }
+
+/* Cabinet .chrome, .brand and .home-access-plan on the original subscription DOM. */
+.header-wrapper { padding:0!important; }
+.header-wrapper > .mantine-Container-root > .mantine-Group-root {
+  display:grid!important;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  height:102px;
+}
+.header-wrapper > .mantine-Container-root > .mantine-Group-root::after {
+  position:static; transform:none; grid-column:2; grid-row:1;
+  width:auto; margin:0; font-size:11px; letter-spacing:.13em;
+}
+.header-wrapper > .mantine-Container-root > .mantine-Group-root > :last-child {
+  grid-column:3; grid-row:1; justify-self:end;
+}
+.header-wrapper .mantine-Group-root:has(> h4)::before { width:18px; height:18px; border-width:5px; }
+.header-wrapper h4 { font-size:18px!important; letter-spacing:.18em!important; }
+.mantine-Card-root:has([class*='_infoBlock_']) {
+  border:1px solid rgba(194,225,214,.13)!important;
+  border-radius:30px!important;
+  background:rgba(3,23,20,.74)!important;
+  padding:23px!important;
+}
+[class*='_infoBlock_'] { background:rgba(139,230,220,.04)!important; }
+@media(max-width:650px) {
+  .header-wrapper > .mantine-Container-root > .mantine-Group-root {
+    grid-template-columns:auto minmax(0,1fr) auto; height:76px; gap:8px;
+  }
+  .header-wrapper > .mantine-Container-root > .mantine-Group-root::after {
+    font-size:10px; letter-spacing:.09em;
+  }
+  .header-wrapper h4 { font-size:14px!important; }
+  .header-wrapper .mantine-ActionIcon-root { width:32px; height:32px; }
+}
+
+/* Rovyn's graphite tariff surfaces. */
+#root .mantine-Card-root { background:#171917!important; }
+#root .mantine-Card-root .mantine-Card-root,
+#root [class*='_infoBlock_'] { background:#242622!important; }
+#root .mantine-Button-root,
+#root .mantine-NativeSelect-input,
+#root .header-wrapper .mantine-ActionIcon-root,
+#root [class*='_appButton_'] { background:#2d3a36!important; color:#fff!important; }
+#root .mantine-Button-root:hover,
+#root [class*='_appButtonActive_'] { background:#424a46!important; }
+
+/* Match device cards from the Rovyn cabinet. */
+#root .mantine-Card-root {
+  background:rgba(9,28,27,.72)!important;
+  border-color:rgba(255,255,255,.16)!important;
+}
+#root .mantine-Card-root .mantine-Card-root,
+#root [class*='_infoBlock_'] {
+  background:rgba(9,28,27,.72)!important;
+  border-color:rgba(255,255,255,.16)!important;
+}
+#root .mantine-Button-root,
+#root .mantine-NativeSelect-input,
+#root .header-wrapper .mantine-ActionIcon-root,
+#root [class*='_appButton_'] {
+  background:rgba(9,28,27,.72)!important;
+}
+#root .mantine-Button-root:hover,
+#root [class*='_appButtonActive_'] {
+  background:rgba(10,39,34,.76)!important;
+}
+
+/* Avoid stacking dark translucent layers inside the main panel. */
+#root .mantine-Card-root {
+  background:rgba(9,28,27,.72)!important;
+  backdrop-filter:none!important;
+  box-shadow:none!important;
+}
+#root .mantine-Card-root .mantine-Card-root,
+#root .mantine-Card-root [class*='_infoBlock_'] {
+  background:rgba(255,255,255,.035)!important;
+  backdrop-filter:none!important;
+  box-shadow:none!important;
+}
+
+/* Neutral white and cool gray replace cream-colored accents. */
+#root {
+  --mantine-color-cyan-text: #b1d0cc;
+  --mantine-color-yellow-text: #b1d0cc;
+}
+#root .mantine-ThemeIcon-root,
+#root [class*='_infoBlock_'] svg,
+#root [class*='_appButtonActive_'],
+#root [class*='_appButtonActive_'] * {
+  color:#d1e0dd!important;
+}
+#root [class*='_appButtonActive_'] { border-color:#8da9a3!important; }
+#root [class*='_appButton_']::before,
+#root [class*='_appButton_']::after { background-color:#8da9a3!important; }
+
+/* Restore the original Happ selection button. */
+#root [class*='_appButton_'] {
+  background:#ffffff05!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-left:3px solid rgba(255,255,255,.08)!important;
+  border-radius:var(--mantine-radius-md)!important;
+}
+#root [class*='_appButton_'] svg { display:block!important; }
+#root [class*='_appButtonActive_'] {
+  background:linear-gradient(90deg,#22d3ee1f,#22d3ee0a)!important;
+  border-color:#22d3ee33!important;
+  border-left-color:var(--mantine-color-cyan-5)!important;
+  box-shadow:inset 4px 0 12px -4px #22d3ee4d,0 0 12px #22d3ee1a!important;
+}
+#root [class*='_appButtonActive_'] [class*='_appName_'] { color:var(--mantine-color-cyan-3)!important; }
+
+/* Installation: Rovyn surfaces, spacing and action hierarchy. */
+#root .mantine-Card-root:has(.mantine-NativeSelect-root) {
+  background:transparent!important;
+  border:0!important;
+  padding:clamp(12px,3vw,24px)!important;
+}
+#root .mantine-Card-root:has(.mantine-NativeSelect-root) > .mantine-Stack-root {
+  gap:22px;
+}
+#root .mantine-Card-root .mantine-Card-root {
+  background:rgba(9,28,27,.72)!important;
+  border:1px solid rgba(194,225,214,.16)!important;
+  border-radius:28px!important;
+  padding:28px!important;
+  margin:0;
+}
+#root .mantine-Card-root .mantine-Card-root > .mantine-Group-root {
+  gap:18px;
+  align-items:flex-start;
+}
+#root .mantine-Card-root .mantine-Card-root .mantine-Stack-root {
+  gap:14px;
+}
+#root .mantine-Card-root .mantine-Card-root h6 {
+  font-size:19px!important;
+  line-height:1.4;
+  padding-top:7px;
+  letter-spacing:-.025em;
+}
+#root .mantine-Card-root .mantine-Card-root p {
+  color:#b6cbc5!important;
+  line-height:1.65;
+}
+#root .mantine-Card-root .mantine-Card-root .mantine-ThemeIcon-root {
+  width:40px; height:40px; min-width:40px;
+  background:rgba(177,208,204,.06)!important;
+  border:0!important;
+  color:#c0d6d2!important;
+}
+#root .mantine-Card-root .mantine-Card-root .mantine-Button-root {
+  min-height:44px;
+  height:auto;
+  padding:10px 20px!important;
+  background:#fff!important;
+  border:1px solid #fff!important;
+  color:#09231d!important;
+  transition:background-color .18s ease,border-color .18s ease;
+}
+#root .mantine-Card-root .mantine-Card-root .mantine-Button-root:hover {
+  background:#e9eff0!important;
+  border-color:#e9eff0!important;
+}
+/* Download actions remain secondary on every platform. */
+#root .mantine-Card-root .mantine-Card-root:first-of-type .mantine-Button-root {
+  background:transparent!important;
+  border-color:rgba(224,240,237,.32)!important;
+  color:#fff!important;
+}
+#root .mantine-Card-root .mantine-Card-root:first-of-type .mantine-Button-root:hover {
+  background:rgba(224,240,237,.08)!important;
+  border-color:rgba(224,240,237,.55)!important;
+}
+#root .mantine-NativeSelect-root,
+#root .mantine-NativeSelect-wrapper {
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  outline:none!important;
+}
+#root .mantine-NativeSelect-input {
+  height:42px;
+  background:rgba(9,28,27,.72)!important;
+  border:1px solid rgba(194,225,214,.24)!important;
+  border-radius:999px!important;
+  box-shadow:none!important;
+}
+#root .mantine-NativeSelect-input:not(:focus-visible) { outline:none!important; }
+#root .mantine-NativeSelect-section { color:#afc8c3; }
+#root [class*='_appButtonActive_'] {
+  background:linear-gradient(90deg,rgba(139,200,191,.12),rgba(9,28,27,.2))!important;
+  border-color:rgba(177,208,204,.22)!important;
+  border-left-color:#91c5bc!important;
+  box-shadow:none!important;
+}
+#root [class*='_appButtonActive_'] [class*='_appName_'] { color:#d4e9e4!important; }
+#root [class*='_featuredBadge_'] { background:#91c5bc!important; box-shadow:none!important; }
+#root [class*='_appsGrid_'] { margin-bottom:18px; }
+@media(max-width:480px) {
+  #root .mantine-Card-root .mantine-Card-root { padding:20px 18px!important; border-radius:24px!important; }
+  #root .mantine-Card-root .mantine-Card-root > .mantine-Group-root { gap:12px; }
+  #root .mantine-Card-root .mantine-Card-root h6 { font-size:17px!important; padding-top:5px; }
+  #root .mantine-Card-root .mantine-Card-root .mantine-ThemeIcon-root { width:34px; height:34px; min-width:34px; }
+  #root .mantine-Card-root .mantine-Card-root .mantine-Button-root { max-width:100%; padding-inline:15px!important; }
+  #root .mantine-Card-root .mantine-Card-root .mantine-Button-label { white-space:normal; text-align:center; }
+}
+@media(prefers-reduced-motion:reduce) {
+  #root .mantine-Card-root .mantine-Button-root { transition:none; }
+}
+
+/* Calm feedback and a restrained expiration indicator. */
+#root .mantine-ThemeIcon-root.rovyn-expiring {
+  background:rgba(210,99,99,.10)!important;
+  border:1px solid rgba(224,132,132,.27)!important;
+  color:#dbabab!important;
+}
+#root [class*='_appButton_'] {
+  display:inline-flex!important;
+  flex:0 0 auto!important;
+  min-height:0!important;
+  height:auto!important;
+  padding:0!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  cursor:default;
+}
+#root [class*='_appButton_'] [class*='_bgIcon_'],
+#root [class*='_appButton_'] [class*='_featuredBadge_'] { display:none!important; }
+#root [class*='_appButton_'] [class*='_appName_'] { color:#d1e0dd!important; font-size:15px; letter-spacing:.05em; }
+@media (prefers-reduced-motion: no-preference) {
+  #root .mantine-Button-root, #root .header-wrapper .mantine-ActionIcon-root { transition:transform .18s ease, background-color .18s ease, border-color .18s ease; }
+  #root .mantine-Button-root:active, #root .header-wrapper .mantine-ActionIcon-root:active { transform:scale(.97); }
+}
+
+/* Stable first paint: no page-wide fade or animated surface colors. */
+#root [class*="_page_"], #root .mantine-Card-root { animation:none!important; }
+#root .mantine-Card-root { transition:none!important; }
+
+/* Restrained interaction motion; surfaces stay stable during loading. */
+@media (prefers-reduced-motion: no-preference) {
+  #root .mantine-Button-root,
+  #root .header-wrapper .mantine-ActionIcon-root {
+    transition:transform 180ms cubic-bezier(.2,.7,.3,1),background-color 180ms ease,border-color 180ms ease;
+  }
+  #root .mantine-Button-section svg,
+  #root .header-wrapper .mantine-ActionIcon-root svg {
+    transition:transform 180ms ease;
+  }
+  #root .mantine-NativeSelect-input { transition:border-color 180ms ease; }
+  @media (hover:hover) and (pointer:fine) {
+    #root .mantine-Button-root:not(:disabled):hover,
+    #root .header-wrapper .mantine-ActionIcon-root:hover { transform:translateY(-2px); }
+    #root .mantine-Button-root:not(:disabled):hover .mantine-Button-section svg { transform:translateY(-1px); }
+    #root .header-wrapper .mantine-ActionIcon-root:hover svg { transform:rotate(-5deg); }
+  }
+  #root .mantine-Button-root:not(:disabled):active,
+  #root .header-wrapper .mantine-ActionIcon-root:active { transform:translateY(0) scale(.98); }
+}
+#root .mantine-NativeSelect-input:focus-visible { border-color:#afc8c3!important; }
+@media (prefers-reduced-motion: no-preference) {
+  #root .mantine-Card-root .mantine-Card-root .mantine-Button-root {
+    transition:transform 180ms cubic-bezier(.2,.7,.3,1),background-color 180ms ease,border-color 180ms ease;
+  }
+}
+
+/* Subscription page controls. */
+#root .mantine-Center-root:has(> button.mantine-ActionIcon-root[aria-haspopup="menu"][id$="-target"]) {
+  display:none;
+}
+#root [class*='_appButton_'] [class*='_appName_'] {
+  color:#fff!important;
+  font-size:clamp(22px,3vw,28px);
+  font-weight:750;
+  letter-spacing:-.025em;
+}
+
+#root .mantine-Card-root:has(.rovyn-platform) { overflow:visible; }
+#root .mantine-Card-root:has(.rovyn-platform[open]) { position:relative; z-index:2; }
+.rovyn-platform { position:relative; }
+.rovyn-platform summary, .rovyn-platform-list button {
+  display:flex; align-items:center; gap:10px;
+  width:100%; min-height:42px; padding:8px 12px;
+  color:#f1f8f6; font:inherit; font-size:14px; text-align:start; cursor:pointer;
+}
+.rovyn-platform summary {
+  list-style:none; border-radius:999px;
+  border:1px solid #a9d6cd42; background:#102f2d;
+}
+.rovyn-platform summary::-webkit-details-marker { display:none; }
+.rovyn-platform svg { flex:none; width:18px; height:18px; stroke:#a6d8ce; fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.rovyn-platform-list {
+  position:absolute; z-index:3; inset-inline-end:0; inset-block-start:calc(100% + 8px);
+  width:190px; max-width:calc(100vw - 32px); max-height:50dvh; overflow:auto; padding:6px;
+  background:#102f2d; border:1px solid #a9d6cd42; border-radius:16px;
+  box-shadow:0 12px 28px #061f1e40;
+}
+.rovyn-platform-list button { border:0; border-radius:10px; background:transparent; }
+.rovyn-platform-list button:hover, .rovyn-platform-list button:focus-visible { background:#234c46; }
+.rovyn-platform-list button[aria-pressed="true"] { background:#24534b; }
+.rovyn-platform-list button[aria-pressed="true"]::after {
+  content:""; width:9px; height:5px; margin-inline-start:auto;
+  border:solid #bde9db; border-width:0 0 2px 2px; transform:rotate(-45deg);
+}
+@media (prefers-reduced-motion:no-preference) {
+  .rovyn-platform[open] .rovyn-platform-list { animation:rovyn-platform-open 160ms ease-out; }
+  @keyframes rovyn-platform-open { from { opacity:0; transform:translateY(-5px); } }
+}
+
+/* Subscription link dialog. */
+section._modalContent_1qevm_1 {
+  background:#102f2d;
+  color:#fff;
+  border:1px solid #a9d6cd42;
+  border-radius:24px;
+  box-shadow:0 16px 56px #04171566;
+}
+._modalContent_1qevm_1 .mantine-Modal-header { background:#102f2d; color:#fff; }
+._modalContent_1qevm_1 .mantine-Modal-title { color:#fff; font-weight:700; }
+._modalContent_1qevm_1 .mantine-Modal-close { color:#c4d4d2; }
+._modalContent_1qevm_1 .mantine-Modal-close:hover { background:#214743; }
+._modalContent_1qevm_1 .mantine-Text-root { color:#fff!important; }
+._modalContent_1qevm_1 .mantine-Text-root + .mantine-Text-root { color:#c4d4d2!important; }
+._modalContent_1qevm_1 img[src^="data:image/svg+xml"] {
+  width:min(100%, 320px); height:auto; margin-inline:auto;
+  padding:clamp(24px, 7vw, 36px); border-radius:16px; background:#fff;
+}
+._modalContent_1qevm_1 .mantine-Button-root {
+  background:#fff!important; border-color:#fff!important; color:#09231d!important;
+}
+._modalContent_1qevm_1 .mantine-Button-root:hover { background:#e5efed!important; }
+#root .mantine-ThemeIcon-root.rovyn-expiring {
+  color:#ffac81!important;
+  background:#ff93501a!important;
+  border-color:#ff935051!important;
+  box-shadow:none!important;
+}
+.rovyn-expiry-symbol { display:none; }
+.rovyn-expiring > svg:not(.rovyn-expiry-symbol) { display:none; }
+.rovyn-expiring > .rovyn-expiry-symbol {
+  display:block; width:21px; height:21px; fill:none; stroke:currentColor;
+  stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;
+}
+
+/* Keep the supported client consistent across every platform and subscription. */
+#root [class*='_appsGrid_'] .rovyn-other-client { display: none !important; }

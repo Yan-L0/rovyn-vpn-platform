@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import secrets
 import uuid
 from datetime import UTC, datetime
@@ -60,6 +61,31 @@ def set_session_cookie(
         path="/",
     )
     response.headers["Cache-Control"] = "no-store"
+
+
+@router.post("/auth/csrf")
+async def recover_csrf(
+    request: Request,
+    response: Response,
+    auth: CurrentUser,
+    db: DatabaseSession,
+) -> dict[str, str]:
+    # Only our browser origin may recover a token. The custom header also
+    # requires a CORS preflight for cross-origin requests.
+    expected_origin = str(request.app.state.settings.MINIAPP_PUBLIC_URL).rstrip("/")
+    if (
+        request.headers.get("origin") != expected_origin
+        or request.headers.get("x-csrf-token") != "refresh"
+    ):
+        raise HTTPException(status_code=403, detail="CSRF recovery not allowed")
+    # Stable for this session: simultaneous tabs do not invalidate each other.
+    token = hashlib.sha256(
+        ("rovyn-csrf-v1:" + request.cookies["vpn_session"]).encode()
+    ).hexdigest()
+    auth.session.csrf_digest = IdentityService._digest(token)
+    await db.commit()
+    response.headers["Cache-Control"] = "no-store"
+    return {"csrf_token": token}
 
 
 @router.post("/auth/telegram", response_model=AuthResponse)
