@@ -3,13 +3,15 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response
 
 from vpn_platform.api.account_v2 import (
     create_support_ticket,
     delete_device,
+    devices,
     referral_summary,
     router,
     subscription_access,
@@ -182,6 +184,32 @@ async def test_subscription_access_uses_remnawave_as_source_of_url_and_usage() -
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["get_subscription_info", "get_usage", "get_devices"])
+async def test_provider_lookup_failure_preserves_paid_subscription(method: str) -> None:
+    auth = authenticated_user()
+    subscription, plan, account = subscription_row(auth.user.id)
+    row = (subscription, account) if method == "get_devices" else (subscription, plan, account)
+    db = FakeDatabase(rows=[row])
+    provider = FakeProvider()
+    setattr(provider, method, AsyncMock(side_effect=RemnawaveNotFound("missing upstream")))
+    endpoint = devices if method == "get_devices" else subscription_access
+    with pytest.raises(HTTPException) as exc:
+        await endpoint(request_with(provider), Response(), db, auth)
+    assert exc.value.status_code == 502
+    assert subscription.status == SubscriptionStatus.ACTIVE
+
+
+@pytest.mark.asyncio
+async def test_access_distinguishes_missing_subscription_from_pending_account() -> None:
+    auth = authenticated_user()
+    subscription, plan, _ = subscription_row(auth.user.id)
+    for row, expected in [(None, 404), ((subscription, plan, None), 409)]:
+        with pytest.raises(HTTPException) as exc:
+            await subscription_access(request_with(), Response(), FakeDatabase(rows=[row]), auth)
+        assert exc.value.status_code == expected
+
+
+@pytest.mark.asyncio
 async def test_yearly_traffic_returns_twelve_real_month_buckets() -> None:
     auth = authenticated_user()
     subscription, _, account = subscription_row(auth.user.id)
@@ -213,8 +241,6 @@ async def test_yearly_traffic_returns_twelve_real_month_buckets() -> None:
 
 @pytest.mark.asyncio
 async def test_missing_history_preserves_paid_access_and_stored_totals() -> None:
-    from unittest.mock import AsyncMock
-
     auth = authenticated_user()
     subscription, _, account = subscription_row(auth.user.id)
     now = datetime.now(UTC)

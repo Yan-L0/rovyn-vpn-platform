@@ -52,8 +52,13 @@ function refreshSharedUsage() {
     body: JSON.stringify({ device_id: deviceId, link_key: linkKey }),
     cache: 'no-store',
     credentials: 'omit',
+    redirect: 'error',
+    signal: AbortSignal.timeout(5000),
   }).then(response => response.ok ? response.json() : null)
-    .then(usage => { sharedUsage = usage; })
+    .then(usage => {
+      sharedUsage = Number.isSafeInteger(usage?.traffic_limit_bytes) && usage.traffic_limit_bytes >= 0
+        ? usage : null;
+    })
     .catch(() => { sharedUsage = null; })
     .finally(() => {
       usageRequest = null;
@@ -72,7 +77,7 @@ function displaySharedUsage() {
     const limit = sharedUsage?.traffic_limit_bytes;
     lines[0].textContent = 'Общий трафик';
     lines[1].textContent = sharedUsage
-      ? `${used == null ? '—' : format(used)} / ${limit === 0 ? '∞' : format(limit)}`
+      ? `${Number.isSafeInteger(used) && used >= 0 ? format(used) : '—'} / ${limit === 0 ? '∞' : format(limit)}`
       : '—';
   }
 }
@@ -125,14 +130,13 @@ function displaySubscriptionStatus() {
     if (label?.textContent.trim() !== 'Статус' || !value) continue;
     const used = sharedUsage?.used_bytes;
     const limit = sharedUsage?.traffic_limit_bytes;
-    if (limit > 0 && used != null && used >= limit && value.textContent.trim() === 'Активна') {
+    const exhausted = limit > 0 && Number.isSafeInteger(used) && used >= limit;
+    if (exhausted && value.textContent.trim() === 'Активна') {
       value.textContent = 'Лимит трафика исчерпан';
-    } else if (limit > 0 && used != null && used < limit &&
-               value.textContent === 'Лимит трафика исчерпан' && value.dataset.rovynQuota) {
-      value.textContent = 'Активна';
-    }
-    if (value.textContent === 'Лимит трафика исчерпан' && !block.matches('[class*="_red_"]')) {
       value.dataset.rovynQuota = '1';
+    } else if (!exhausted && value.dataset.rovynQuota) {
+      if (value.textContent === 'Лимит трафика исчерпан') value.textContent = 'Активна';
+      delete value.dataset.rovynQuota;
     }
     value.classList.toggle('rovyn-status-inactive', value.textContent.trim() !== 'Активна');
   }

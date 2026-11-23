@@ -84,6 +84,7 @@ async def sync_device_access(
             await provider.drop_connections(device.provider_user_id)
             if device.status == "revoking":
                 device.status = "revoked"
+                device.revoked_at = datetime.now(UTC)
             elif device.status in {"active", "limited"}:
                 device.status = "limited"
             continue

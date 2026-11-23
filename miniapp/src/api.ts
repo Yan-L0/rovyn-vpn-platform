@@ -163,6 +163,15 @@ function recoverCsrf(): Promise<string> {
   return csrfRecovery
 }
 
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit, retryCsrf = true): Promise<T> {
   let response: Response
   try {
@@ -187,7 +196,7 @@ async function request<T>(path: string, init?: RequestInit, retryCsrf = true): P
         headers: { ...init?.headers, 'X-CSRF-Token': token },
       }, false)
     }
-    throw new Error(typeof detail.detail === 'string' ? detail.detail : 'Сервис временно недоступен')
+    throw new ApiError(response.status, typeof detail.detail === 'string' ? detail.detail : 'Сервис временно недоступен')
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>

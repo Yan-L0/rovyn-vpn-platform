@@ -7,7 +7,7 @@ from typing import Annotated, cast
 from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 
 from vpn_platform.api.dependencies import (
     AuthenticatedUser,
@@ -79,30 +79,34 @@ async def _vpn_account(
     return row[0], row[1]
 
 
-async def _expire_local_subscription(db: DatabaseSession, subscription: Subscription) -> None:
-    """Keep the cabinet truthful when an account was removed in Remnawave."""
-    subscription.status = SubscriptionStatus.EXPIRED
-    await db.execute(delete(VpnUsageDaily).where(VpnUsageDaily.user_id == subscription.user_id))
-    await db.commit()
-
-
-async def _provider_shared_usage(
-    db: DatabaseSession, provider: VPNProvider, subscription: Subscription, account: VpnAccount
-) -> int:
+async def _shared_usage(
+    request: Request, db: DatabaseSession, subscription: Subscription, account: VpnAccount | None
+) -> int | None:
+    path = getattr(getattr(request.app.state, "settings", None), "TARIFF_POLICY_ACK_PATH", "")
+    used = await policy_usage(path, subscription, device_db=db)
+    if used is not None:
+        return used
+    if account is None:
+        account = await db.scalar(
+            select(VpnAccount).where(VpnAccount.subscription_id == subscription.id)
+        )
+    provider: VPNProvider | None = request.app.state.vpn_provider
+    if account is None or provider is None:
+        return None
     baseline = (subscription.access_policy or {}).get("usage_baseline", {})
-    used = max(
-        0,
-        (await provider.get_usage(account.provider_user_id)).used_bytes
-        - baseline.get(account.provider_user_id, 0),
+    provider_ids = {account.provider_user_id}
+    # Revoked credentials retain their share of this period's usage.
+    provider_ids.update(
+        d.provider_user_id for d in await device_rows(db, subscription) if d.provider_user_id
     )
-    for device in await device_rows(db, subscription):
-        if device.provider_user_id:
-            used += max(
-                0,
-                (await provider.get_usage(device.provider_user_id)).used_bytes
-                - baseline.get(device.provider_user_id, 0),
-            )
-    return used
+    total = 0
+    try:
+        for provider_id in provider_ids:
+            usage = await provider.get_usage(provider_id)
+            total += max(0, usage.used_bytes - baseline.get(provider_id, 0))
+    except ProviderError:
+        return None
+    return total
 
 
 @router.post("/subscription/device-usage")
@@ -137,16 +141,7 @@ async def device_subscription_usage(
         raise HTTPException(404, "Device link not found")
     response.headers["Access-Control-Allow-Origin"] = f"{url.scheme}://{url.netloc}"
     response.headers["Cache-Control"] = "private, no-store"
-    used = await policy_usage(request.app.state.settings.TARIFF_POLICY_ACK_PATH, subscription)
-    if used is None:
-        account = await db.scalar(
-            select(VpnAccount).where(VpnAccount.subscription_id == subscription.id)
-        )
-        if account is not None:
-            try:
-                used = await _provider_shared_usage(db, _provider(request), subscription, account)
-            except ProviderError:
-                pass
+    used = await _shared_usage(request, db, subscription, None)
     return {"used_bytes": used, "traffic_limit_bytes": subscription.traffic_limit_bytes}
 
 
@@ -161,7 +156,7 @@ async def subscription_access(
         await db.execute(
             select(Subscription, Plan, VpnAccount)
             .join(Plan, Plan.id == Subscription.plan_id)
-            .join(VpnAccount, VpnAccount.subscription_id == Subscription.id)
+            .outerjoin(VpnAccount, VpnAccount.subscription_id == Subscription.id)
             .where(
                 Subscription.user_id == auth.user.id,
                 Subscription.status.in_([SubscriptionStatus.ACTIVE, SubscriptionStatus.SUSPENDED]),
@@ -177,15 +172,10 @@ async def subscription_access(
         )
 
     subscription, plan, account = row
-    provider = _provider(request)
-    core_used = await policy_usage(
-        getattr(getattr(request.app.state, "settings", None), "TARIFF_POLICY_ACK_PATH", ""),
-        subscription,
-    )
+    if account is None:
+        raise HTTPException(409, "VPN subscription is not provisioned yet")
     if subscription.isolated_devices:
-        used = core_used
-        if used is None:
-            used = await _provider_shared_usage(db, provider, subscription, account)
+        used = await _shared_usage(request, db, subscription, account)
         response.headers["Cache-Control"] = "no-store"
         return SubscriptionAccessResponse(
             subscription_id=subscription.id,
@@ -201,15 +191,14 @@ async def subscription_access(
                 used_bytes=used, traffic_limit_bytes=subscription.traffic_limit_bytes
             ),
         )
+    provider = _provider(request)
+    core_used = await policy_usage(
+        getattr(getattr(request.app.state, "settings", None), "TARIFF_POLICY_ACK_PATH", ""),
+        subscription,
+    )
     try:
         provider_user = await provider.get_subscription_info(account.provider_user_id)
         usage = await provider.get_usage(account.provider_user_id)
-    except RemnawaveNotFound as error:
-        await _expire_local_subscription(db, subscription)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="VPN subscription not found",
-        ) from error
     except ProviderError as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -280,9 +269,6 @@ async def devices(
         ]
     try:
         items = await _provider(request).get_devices(account.provider_user_id)
-    except RemnawaveNotFound:
-        await _expire_local_subscription(db, row[0])
-        return []
     except ProviderError as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

@@ -221,6 +221,7 @@ async def revoke(
         await provider.disable_user(device.provider_user_id)
         await provider.drop_connections(device.provider_user_id)
         device.status = "revoked"
+        device.revoked_at = datetime.now(UTC)
         await db.commit()
     except ProviderError as error:
         raise HTTPException(

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  ApiError,
   authenticate,
   createDevice,
   migrateDevices,
@@ -108,7 +109,8 @@ function formatBytes(value: number | null | undefined): string {
 }
 
 function formatTrafficLimit(value: number | null | undefined): string {
-  return value === 0 || value == null ? 'Безлимит' : formatBytes(value)
+  if (value == null) return 'Лимит уточняется'
+  return value === 0 ? 'Безлимит' : formatBytes(value)
 }
 
 function formatDate(value: string): string {
@@ -237,22 +239,30 @@ export default function CabinetV2() {
   const modalRef = useRef<HTMLElement | null>(null)
   const deviceSyncPendingRef = useRef(false)
 
+  const refreshSequence = useRef(0)
+  const [refreshing, setRefreshing] = useState(false)
   const refreshLive = useCallback(async () => {
-    const results = await Promise.allSettled([loadSubscriptionAccess(), loadYearlyTraffic(), loadDevices()])
-    if (results[0].status === 'fulfilled') setAccess(results[0].value)
-    if (results[1].status === 'fulfilled') setTraffic(results[1].value)
-    if (results[2].status === 'fulfilled') setDevices(results[2].value)
-    const failed = results.find((result) => result.status === 'rejected')
-    const subscriptionMissing = failed?.status === 'rejected'
-      && failed.reason instanceof Error
-      && /VPN subscription not found|VPN service did not return subscription data/i.test(failed.reason.message)
-    if (subscriptionMissing) {
+    const sequence = ++refreshSequence.current
+    setRefreshing(true)
+    const [subscription, history, deviceList] = await Promise.allSettled([
+      loadSubscriptionAccess(), loadYearlyTraffic(), loadDevices(),
+    ])
+    if (sequence !== refreshSequence.current) return
+    setRefreshing(false)
+    if (subscription.status === 'rejected' && subscription.reason instanceof ApiError
+      && subscription.reason.status === 404 && subscription.reason.message === 'VPN subscription not found') {
       setAccess(null)
       setTraffic(null)
       setDevices([])
-      setMe((current) => current ? { ...current, subscription: null } : current)
+      setMe(current => current ? { ...current, subscription: null } : current)
+      setLiveError(null)
+      return
     }
-    setLiveError(subscriptionMissing ? null : failed?.status === 'rejected' ? failed.reason instanceof Error ? failed.reason.message : 'Не все данные обновились' : null)
+    if (subscription.status === 'fulfilled') setAccess(subscription.value)
+    if (history.status === 'fulfilled') setTraffic(history.value)
+    if (deviceList.status === 'fulfilled') setDevices(deviceList.value)
+    const failed = [subscription, history, deviceList].some(result => result.status === 'rejected')
+    setLiveError(failed ? 'Не удалось обновить все данные.' : null)
   }, [])
 
   useEffect(() => {
@@ -325,7 +335,7 @@ export default function CabinetV2() {
         if (embedded || browserBypass) await authenticate(window.Telegram?.WebApp.initData ?? '')
         const [profile, catalog, adminAccess] = await Promise.all([
           loadMe(),
-          loadPlans(),
+          loadPlans().catch(() => []),
           loadAdminAccess().catch(() => ({ is_owner: false })),
         ])
         setMe(profile)
@@ -686,13 +696,20 @@ export default function CabinetV2() {
   if (loading) return <main className="cabinet-state" aria-live="polite"><div className="cabinet-loader" aria-hidden="true"><i /><i /><i /><span>R</span></div><strong>Личный кабинет</strong><p>Синхронизируем доступ…</p><small>Проверяем подписку и устройства</small></main>
   if (error || !me) return <main className="cabinet-state"><strong>Вход не выполнен</strong><p>{error || 'Откройте кабинет из официального Telegram-бота.'}</p></main>
 
-  const active = Boolean(access && access.status !== 'expired')
-  const quotaExhausted = Boolean(access && access.usage.traffic_limit_bytes > 0 && access.usage.used_bytes >= access.usage.traffic_limit_bytes)
+  const subscription = access ?? me.subscription
+  const active = subscription != null && subscription.status !== 'expired'
+  const awaitingAccess = active && !access
+  const trafficLimit = access?.usage.traffic_limit_bytes ?? me.subscription?.traffic_limit_bytes
+  const usedBytes = access?.usage.used_bytes ?? me.subscription?.used_bytes
+  const trafficSummary = trafficLimit != null && trafficLimit > 0 && usedBytes != null
+    ? `Израсходовано ${formatBytes(usedBytes)} из ${formatBytes(trafficLimit)}`
+    : formatTrafficLimit(trafficLimit)
+  const quotaExhausted = trafficLimit != null && trafficLimit > 0 && usedBytes != null && usedBytes >= trafficLimit
   const days = remainingDays(access?.expires_at ?? me.subscription?.expires_at)
   const limit = access?.device_limit ?? me.subscription?.device_limit ?? 0
   const currentMonth = traffic?.current_month ?? new Date().getMonth() + 1
   const shownMonth = selectedMonth ?? currentMonth
-  const shownUsage = traffic?.months.find((month) => month.month === shownMonth)?.used_bytes ?? 0
+  const monthUsage = traffic?.months.find((month) => month.month === shownMonth)
   const maxUsage = Math.max(1, ...(traffic?.months.map((month) => month.used_bytes) ?? [1]))
   const telegramUser = window.Telegram?.WebApp.initDataUnsafe?.user
   const telegramDisplayName = [telegramUser?.first_name, telegramUser?.last_name].filter(Boolean).join(' ').trim()
@@ -700,7 +717,7 @@ export default function CabinetV2() {
   const telegramPhoto = telegramUser?.photo_url
   const profileNameClass = displayName.length > 24 ? 'is-very-long' : displayName.length > 12 ? 'is-long' : displayName.length > 8 ? 'is-medium' : ''
   const availableDeviceSlots = Math.max(0, limit - devices.length)
-  const showDeviceSlot = !active || availableDeviceSlots > 0
+  const showDeviceSlot = !awaitingAccess && (!active || availableDeviceSlots > 0)
   const sortedPlans = [...plans].sort((a, b) => planRank(a) - planRank(b))
   const adminPlan = plans.find((plan) => plan.id === adminPlanId) ?? sortedPlans[0]
 
@@ -721,28 +738,28 @@ export default function CabinetV2() {
                 <div className="home-access-intro__copy">
                   <p className="kicker">Ваш доступ</p>
                   <h1>Интернет<br /><span>без лишнего.</span></h1>
-                  <p>{active ? 'Подписка защищает все ваши устройства. Ссылка уже готова для подключения.' : 'Выберите тариф — личная ссылка для Happ и v2RayTun появится сразу после оплаты.'}</p>
+                  <p>{awaitingAccess ? 'Сведения о подключении временно недоступны.' : active ? 'Подписка защищает все ваши устройства. Ссылка уже готова для подключения.' : 'Выберите тариф — личная ссылка для Happ и v2RayTun появится сразу после оплаты.'}</p>
                 </div>
                 <div className="home-access-intro__signal" aria-hidden="true"><div className="home-access-intro__orbit"><i /><i /><i /><span>R</span></div></div>
               </section>
               <article className="home-access-plan">
-                <p>{quotaExhausted ? 'Трафик закончился' : active ? 'Подписка активна' : 'Готово к подключению'}</p>
-                <div><strong>{active ? access!.plan_name : 'Выберите свой ритм.'}</strong></div>
-                <small>{active ? `${formatTrafficLimit(access!.usage.traffic_limit_bytes)} · до ${limit} устройств` : 'До 5 устройств · безлимитный трафик'}</small>
-                <button className="home-access-plan__action" onClick={() => active && !quotaExhausted ? void copyAccess() : navigate('plans')}>{quotaExhausted ? 'Продлить подписку' : active ? 'Открыть подключение' : 'Выбрать тариф'} <Icon name="arrow" /></button>
+                <p>{quotaExhausted ? 'Трафик закончился' : active ? subscription.status === 'suspended' ? 'Подписка приостановлена' : 'Подписка активна' : 'Готово к подключению'}</p>
+                <div><strong>{active ? subscription.plan_name : 'Выберите свой ритм.'}</strong></div>
+                <small>{active ? `${trafficSummary} · до ${limit} устройств` : 'До 5 устройств · безлимитный трафик'}</small>
+                <button className="home-access-plan__action" disabled={awaitingAccess && refreshing} onClick={() => awaitingAccess ? void refreshLive() : active && !quotaExhausted ? void copyAccess() : navigate('plans')}>{awaitingAccess ? 'Обновить подключение' : quotaExhausted ? 'Продлить подписку' : active ? 'Открыть подключение' : 'Выбрать тариф'} <Icon name="arrow" /></button>
               </article>
             </div>
 
             <aside className="home-aside">
               <article className="subscription-panel">
-                <header><p className="kicker">Срок подписки</p><small>{active ? 'активна' : 'период не начат'}</small></header>
+                <header><p className="kicker">Срок подписки</p><small>{active ? subscription.status === 'suspended' ? 'приостановлена' : 'активна' : 'период не начат'}</small></header>
                 <div className="subscription-date"><strong>{days}</strong><span>дней осталось</span></div>
-                <div className="subscription-progress" aria-label={active ? `Осталось ${days} дней` : 'Подписка не активна'}><i style={{ width: active ? `${Math.min(100, Math.max(7, days / 3.65))}%` : '0%' }} /><span>{active ? 'сейчас' : '—'}</span><span>{active ? formatDate(access!.expires_at) : '—'}</span></div>
+                <div className="subscription-progress" aria-label={active ? `Осталось ${days} дней` : 'Подписка не активна'}><i style={{ width: active ? `${Math.min(100, Math.max(7, days / 3.65))}%` : '0%' }} /><span>{active ? 'сейчас' : '—'}</span><span>{active ? formatDate(subscription.expires_at) : '—'}</span></div>
                 <p className="subscription-hint">{active ? 'Статус обновляется при каждом открытии' : 'Срок появится после подключения тарифа'}</p>
               </article>
               <article className="traffic-card">
                 <header><div><p>Потраченный трафик</p><small>{traffic?.source_status === 'fresh' ? 'обновлено сейчас' : 'последние доступные данные'}</small></div><span>{traffic?.year ?? new Date().getFullYear()} год</span></header>
-                <div className="traffic-value" aria-live="polite"><strong>{formatBytes(shownUsage)}</strong><small>за {monthNames[shownMonth - 1]}{shownMonth === currentMonth ? ' · текущий месяц' : ''}</small></div>
+                <div className="traffic-value" aria-live="polite"><strong>{monthUsage?.has_data ? formatBytes(monthUsage.used_bytes) : '—'}</strong><small>за {monthNames[shownMonth - 1]}{shownMonth === currentMonth ? ' · текущий месяц' : ''}</small></div>
                 <div className="traffic-bars" aria-label={`Трафик по месяцам за ${traffic?.year ?? new Date().getFullYear()} год`}>
                   {monthLetters.map((letter, index) => {
                     const month = traffic?.months[index]
@@ -750,7 +767,7 @@ export default function CabinetV2() {
                     return <button key={index} type="button" disabled={future || !month?.has_data} className={`${shownMonth === index + 1 ? 'is-selected' : ''} ${currentMonth === index + 1 ? 'is-current' : ''} ${future ? 'is-future' : ''}`} onClick={() => setSelectedMonth(index + 1)} aria-label={monthNames[index]} aria-pressed={shownMonth === index + 1}><i style={{ height: month?.has_data ? `${Math.max(8, month.used_bytes / maxUsage * 100)}%` : '3px' }} /><span>{letter}</span></button>
                   })}
                 </div>
-                {liveError && <small className="live-data-error">{liveError}</small>}
+                {liveError && <div className="live-data-error" role="status">{liveError} <button type="button" disabled={refreshing} onClick={() => void refreshLive()}>Повторить</button></div>}
               </article>
               <button className="device-line" onClick={() => navigate('devices')}><span className="mini-icon"><Icon name="devices" /></span><span><small>Ваши устройства</small><strong>{devices.length} подключено</strong></span><Icon name="arrow" /></button>
             </aside>
@@ -764,9 +781,10 @@ export default function CabinetV2() {
 
         <section className={`screen ${view === 'devices' ? 'is-visible' : ''}`}>
           <header className="page-title compact"><p className="kicker">Подключения</p><div className="device-title-row"><h2>Устройства</h2></div></header>
+          {awaitingAccess && <button className="modal-secondary" disabled={refreshing} onClick={() => void refreshLive()}>Обновить подключение</button>}
           <div className="timeline">
             {devices.map((device) => <button className="timeline-row" key={device.hardware_id} onClick={() => openDevice(device)}><span className="timeline-node" /><small>{device.status === 'pending' ? 'Подготовка' : device.status === 'revoking' ? 'Отключение' : device.status === 'limited' ? 'Приостановлено' : 'Добавлено'}</small><div><span className="device-art"><Icon name={deviceIcon(device)} /></span><p><strong>{shortDeviceName(device)}</strong><small>{device.platform || 'Устройство'}</small></p><Icon name="chevron" /></div></button>)}
-            {active && !access?.isolated_devices && <button className="modal-secondary" onClick={offerDeviceMigration}>Перейти на персональные подключения</button>}
+            {active && access && !access.isolated_devices && <button className="modal-secondary" onClick={offerDeviceMigration}>Перейти на персональные подключения</button>}
             {showDeviceSlot && <button className="timeline-row empty" onClick={() => { if (!active) navigate('plans'); else if (access?.isolated_devices) addPersonalDevice(); else offerDeviceMigration() }}><span className="timeline-node" /><small>{active ? 'Свободно' : 'Нет тарифа'}</small><div><span className="device-art"><Icon name="plus" /></span><p><strong>Добавить устройство</strong><small>{active ? `Доступно ещё ${availableDeviceSlots}` : 'Сначала выберите тариф'}</small></p><Icon name="chevron" /></div></button>}
           </div>
         </section>
