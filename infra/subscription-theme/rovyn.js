@@ -162,6 +162,7 @@ function refreshRovyn() {
     const recolored = source.replace(/%23161B22/gi, '%23ffffff').replace(/%2322d3ee/gi, '%230c2724');
     if (recolored !== source) qr.setAttribute('src', recolored);
   }
+  window.renderRovynSummary?.(sharedUsage, deviceLabel);
   observer.observe(document.body, {childList:true, subtree:true, characterData:true});
 }
 const platformIcons = {

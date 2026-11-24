@@ -490,3 +490,5 @@ section._modalContent_1qevm_1 {
 #root [class*='_appsGrid_'] .rovyn-other-client { display: none !important; }
 
 #root [class*="_infoBlock_"] .rovyn-status-inactive { color: #ff9295 !important; }
+
+#root .rovyn-folded { display: none !important; }
