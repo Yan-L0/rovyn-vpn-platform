@@ -1,0 +1,70 @@
+:host{display:block;font:16px/1.45 Arial,sans-serif;color:white;color-scheme:dark;--text:#fff;--muted:#b4c9c6;--edge:rgba(194,225,214,.18);--panel:rgba(3,23,20,.74);--mint:#83d3c6}
+*{box-sizing:border-box}
+button,select{font:inherit;color:inherit}button,summary,a,select{cursor:pointer}button,a{touch-action:manipulation}a{color:inherit;text-decoration:none}
+button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:4px}
+.section-name,.caption{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.16em}
+.card,.guide{background:var(--panel);border:1px solid var(--edge);border-radius:32px}
+.card{padding:clamp(24px,5vw,54px);position:relative;overflow:hidden}.hero{display:flex;align-items:center;justify-content:space-between;padding-bottom:30px;border-bottom:1px solid var(--edge);gap:16px}
+.status{display:flex;align-items:center;gap:9px;color:#b4e3d9;font-size:14px}.status b{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px #83d3c613}
+h1,h2,h3,p{margin:0}h1{font-size:clamp(37px,6.5vw,73px);line-height:1.04;letter-spacing:-.065em;margin:18px 0 10px}.identity p,.scale,.instructions p,.sheet p{color:var(--muted)}
+.orbit{position:relative;flex:none;width:138px;aspect-ratio:1;border:1px solid #94d4c729;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,#6cd3be13,transparent 70%)}
+.track,.planet{position:absolute;inset:13%;border:1px solid #94d4c73b;border-radius:50%}.track:after{content:"";width:7px;height:7px;background:var(--mint);border-radius:50%;position:absolute;left:12%;top:10%}.planet{inset:27%;display:grid;place-items:center;color:#c9e7e1;background:#80bfb415}.planet svg{width:27px;height:27px}
+.balance{padding:29px 0 30px}.caption{color:var(--muted)}.amount{font-size:clamp(52px,7vw,72px);font-weight:600;line-height:1.1;letter-spacing:-.065em;margin:8px 0 16px;font-variant-numeric:tabular-nums}.amount span{font-weight:450;font-size:.47em;color:#c0d7d3;letter-spacing:-.04em}
+.meter{height:6px;border-radius:8px;overflow:hidden;background:#ffffff1d}.meter i{display:block;width:50%;height:100%;background:var(--mint);border-radius:inherit}.scale{display:flex;justify-content:space-between;gap:8px;margin-top:9px;font-size:13px}
+.open,.sheet button{background:white;color:#102c29;border:0;border-radius:99px;min-height:49px;padding:0 24px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:32px}
+.guide{margin-top:14px;border-radius:23px}button.guide{list-style:none;display:flex;gap:16px;align-items:center;padding:18px clamp(20px,4vw,36px)}summary::-webkit-details-marker{display:none}.guide-icon{display:grid;place-items:center;width:40px;height:40px;background:#ffffff0b;border:1px solid var(--edge);border-radius:50%;color:#c7dcd8}.toggle{position:relative;width:16px;height:2px;background:var(--muted);margin-left:auto}.toggle:after{content:"";position:absolute;inset:0;background:inherit;transform:rotate(90deg);transition:transform .18s}.guide[aria-expanded=true] .toggle:after{transform:rotate(0)}
+/* Expiry uses one warm accent and an explicit reason. */
+.card[data-state="expired"] .status {
+  display: inline-flex;
+  gap: 7px;
+  padding: 4px 10px 4px 7px;
+  border: 1px solid #fa9b9448;
+  border-radius: 99px;
+  background: #ee7f7411;
+  color: #ffb6ae;
+}
+.card[data-state="expired"] .status b {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+.card[data-state="expired"] .status b::before { content: '!'; font: 700 11px/1 Arial,sans-serif; }
+.card[data-state="expired"] .meter i { background: #89a8a2; }
+.card[data-state="expired"] .track { animation: none; }
+.card[data-state="expired"] .track::after { background: #f3aaa2; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .identity, .balance, .guide, dialog[open] .sheet, .guide[aria-expanded=true] .instructions {
+    animation: settle 320ms cubic-bezier(.2,.7,.3,1) backwards;
+  }
+  .balance { animation-delay: 50ms; }
+  .guide { animation-delay: 85ms; }
+  .guide[aria-expanded=true] .instructions, dialog[open] .sheet { animation-duration: 200ms; }
+  .meter i { transform-origin: left; animation: reveal-meter 580ms cubic-bezier(.2,.7,.3,1) backwards; }
+  .open:active, .tools > :active { transform: scale(.975); }
+  @keyframes settle { from { opacity: .45; transform: translateY(6px); } }
+  @keyframes reveal-meter { from { transform: scaleX(0); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toggle::after { transition: none; }
+}
+
+button.guide { width:100%; text-align:start; color:white; }
+[hidden]{display:none!important}
+.identity{min-width:0;overflow-wrap:anywhere}
+.scale{flex-wrap:wrap}
+@media(max-width:550px){
+ .card{padding:24px 21px;border-radius:25px}.orbit{width:75px}.planet svg{width:18px;height:18px}
+ .hero{gap:6px;padding-bottom:24px}.status,.identity p{font-size:13px}h1{font-size:clamp(29px,8.4vw,42px)}
+ .balance{padding:25px 0}.open{width:100%;justify-content:space-between}
+}
+@media(prefers-reduced-motion:no-preference){
+ .track{animation:rotate-orbit 55s linear infinite}
+ .open{transition:transform .18s}
+ @keyframes rotate-orbit{to{transform:rotate(360deg)}}
+}
+svg { width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; }
+.amount .unit { font-size:.47em; color:#c0d7d3; }

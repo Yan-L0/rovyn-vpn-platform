@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class SubscriptionUsageResponse(BaseModel):
-    used_bytes: int = Field(ge=0)
+    used_bytes: int | None = Field(ge=0)
     traffic_limit_bytes: int = Field(ge=0)
     upload_bytes: int | None = Field(default=None, ge=0)
     download_bytes: int | None = Field(default=None, ge=0)

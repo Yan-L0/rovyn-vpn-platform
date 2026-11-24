@@ -4213,3 +4213,22 @@ body.biorg-cabinet .shell {
   .shell.browser-embedded .chrome .brand i { width:14px; height:14px; border-width:4px; }
   .shell.browser-embedded .chrome .section-label { font-size:9px; letter-spacing:.04em; }
 }
+
+.device-mobile-label { display: none; }
+
+@media (max-width: 640px) {
+  .device-action-sheet .device-desktop-label,
+  .device-action-sheet .action-dismiss,
+  .device-action-sheet .modal-close { display: none; }
+  .device-action-sheet .device-mobile-label { display: inline; }
+  .device-action-sheet .modal-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .device-action-sheet .modal-actions .action-primary { order: 2; }
+  .device-action-sheet .modal-actions .modal-secondary {
+    border: 1px solid #e78383;
+    color: #ffc3c3;
+    font-size: 13px;
+  }
+}
+
+.single-action-sheet .modal-close { display: none; }
+.single-action-sheet .modal-actions { grid-template-columns: minmax(0, 1fr); }
