@@ -73,7 +73,7 @@ that are relevant to the task and project in front of you.
 | Package registry | `npm --version`, `python -m pip --version`, or project package manager | Use web/docs search and avoid claiming registry coverage |
 | GitHub CLI | `gh auth status` | Use public web or local git history only |
 | MCP/docs tools | Available tool list or local MCP config | Fall back to official docs/web search |
-| Skills directory | `ls ~/.claude/skills ~/.codex/skills` where applicable | Say no local skill catalog was available |
+| Skills directory | `ls .agents/skills` where applicable | Say no local skill catalog was available |
 
 ### Quick Mode (inline)
 

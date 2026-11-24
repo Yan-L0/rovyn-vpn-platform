@@ -5,7 +5,7 @@ Source: https://github.com/affaan-m/ECC
 Reviewed revision: `76aaa77df6adc5b889e689007bf99b9a4f74af34`.
 License: MIT, reproduced in `.agents/ECC-LICENSE`.
 
-This project installs three instruction skills locally, using Codex's
+This project stores three instruction skills in the
 `.agents/skills/<name>/SKILL.md` layout:
 
 | Skill | Upstream path | Use in Rovyn |
@@ -14,7 +14,7 @@ This project installs three instruction skills locally, using Codex's
 | iterative-retrieval | skills/iterative-retrieval | Find relevant context progressively; keep agent handoffs focused |
 | verification-loop | .agents/skills/verification-loop | Verify behavior and report actual build, types, lint and test evidence |
 
-The vendored skill files are unchanged. `AGENTS.md` supplies the project-specific
+The search-first skill uses the repository’s local skill directory as its example. `AGENTS.md` supplies the project-specific
 application: Python/FastAPI, React/Vite, existing check commands, focused testing,
 VPN isolation invariants and the established Git author. Skills are available
 for discovery on the next turn when this repository is the project/work directory;
@@ -22,7 +22,7 @@ their instructions were also read and applied during this integration.
 
 ECC includes many other agents, hooks, MCP integrations and memory systems.
 These are not prerequisites for the three practices installed here. This
-integration does not execute ECC's bootstrap scripts, change global Codex model
+integration does not execute ECC's bootstrap scripts, change global model
 or permissions, enable hooks, install MCP servers, send telemetry, or create
 background jobs. Future additions should solve a concrete project need and be
 reviewed individually.
